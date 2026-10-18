@@ -1,0 +1,34 @@
+{
+  "id": "hxsf",
+  "endian": "le",
+  "seq": [
+    { "id": "header", "type": "header" },
+    { "id": "entries", "type": "entry", "repeat": "expr", "repeatExpr": "header.entry_count" },
+    { "id": "name_pool", "type": "bytes", "size": "header.pool_size" }
+  ],
+  "types": {
+    "header": {
+      "seq": [
+        { "id": "magic", "type": "bytes", "contents": "HXSF" },
+        { "id": "version", "type": "u2" },
+        { "id": "flags", "type": "u2" },
+        { "id": "file_size", "type": "u4" },
+        { "id": "entry_count", "type": "u4" },
+        { "id": "table_offset", "type": "u4" },
+        { "id": "pool_offset", "type": "u4" },
+        { "id": "pool_size", "type": "u4" },
+        { "id": "data_offset", "type": "u4" }
+      ]
+    },
+    "entry": {
+      "seq": [
+        { "id": "field_0", "type": "u4" },
+        { "id": "field_4", "type": "u2" },
+        { "id": "field_6", "type": "u2" },
+        { "id": "field_8", "type": "u4" },
+        { "id": "field_12", "type": "u4" },
+        { "id": "field_16", "type": "u4" }
+      ]
+    }
+  }
+}

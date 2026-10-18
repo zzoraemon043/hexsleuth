@@ -1,0 +1,27 @@
+{
+  "id": "zip",
+  "endian": "le",
+  "seq": [
+    { "id": "files", "type": "local_file", "repeat": "eos" }
+  ],
+  "types": {
+    "local_file": {
+      "seq": [
+        { "id": "magic", "type": "bytes", "contents": [80, 75, 3, 4] },
+        { "id": "version_needed", "type": "u2" },
+        { "id": "flags", "type": "u2" },
+        { "id": "method", "type": "u2" },
+        { "id": "mod_time", "type": "u2" },
+        { "id": "mod_date", "type": "u2" },
+        { "id": "crc32", "type": "u4" },
+        { "id": "compressed_size", "type": "u4" },
+        { "id": "uncompressed_size", "type": "u4" },
+        { "id": "name_length", "type": "u2" },
+        { "id": "extra_length", "type": "u2" },
+        { "id": "name", "type": "str", "size": "name_length", "encoding": "UTF-8" },
+        { "id": "extra", "type": "bytes", "size": "extra_length" },
+        { "id": "body", "type": "bytes", "size": "compressed_size" }
+      ]
+    }
+  }
+}

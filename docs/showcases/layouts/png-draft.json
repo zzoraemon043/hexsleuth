@@ -1,0 +1,17 @@
+{
+  "id": "png",
+  "endian": "be",
+  "seq": [
+    { "id": "signature", "type": "bytes", "contents": [137, 80, 78, 71, 13, 10, 26, 10] },
+    { "id": "chunks", "type": "chunk", "repeat": "eos" }
+  ],
+  "types": {
+    "chunk": {
+      "seq": [
+        { "id": "length", "type": "u4" },
+        { "id": "chunk_type", "type": "str", "size": 4, "encoding": "ASCII" },
+        { "id": "data", "type": "bytes", "size": "length" }
+      ]
+    }
+  }
+}

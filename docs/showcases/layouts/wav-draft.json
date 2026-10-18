@@ -1,0 +1,19 @@
+{
+  "id": "wav",
+  "endian": "le",
+  "seq": [
+    { "id": "riff_magic", "type": "bytes", "contents": "RIFF" },
+    { "id": "riff_size", "type": "u4" },
+    { "id": "form_type", "type": "bytes", "contents": "WAVE" },
+    { "id": "chunks", "type": "chunk", "repeat": "eos" }
+  ],
+  "types": {
+    "chunk": {
+      "seq": [
+        { "id": "chunk_id", "type": "str", "size": 4, "encoding": "ASCII" },
+        { "id": "length", "type": "u4" },
+        { "id": "body", "type": "bytes", "size": "length" }
+      ]
+    }
+  }
+}
