@@ -14,6 +14,7 @@ The script writes to `fixtures/` (ignored by git) and records every file in `fix
 | `fixtures/zip` | ZIP | 6 | one to five entries, stored and deflated entries |
 | `fixtures/wav` | WAV (RIFF) | 6 | channels, sample rate, length, optional `LIST` and odd-sized `JUNK` chunks |
 | `fixtures/hxsf` | HXSF, designed for this repository | 6 | one to six entries, version 1 or 2, zlib text, raw tables, random noise |
+| `fixtures/compression` | zlib, gzip, raw deflate, LZ4, Zstandard, random and plain data | 8 | one stream each, embedded after a 23-byte header; the manifest records its offset and sizes |
 
 HXSF is a format made up for the tests. It has a header, an offset table, a string pool of null-terminated names and a data area with zlib-compressed and uncompressed sections. Its structure is intentionally not described here: [docs/showcases/hxsf.md](showcases/hxsf.md) recovers it from the samples. The generator in `scripts/fixtures/hxsf.ts` is the ground truth.
 
