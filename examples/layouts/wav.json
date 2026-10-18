@@ -1,0 +1,34 @@
+{
+  "id": "wav",
+  "title": "WAV audio",
+  "fileExtension": "wav",
+  "endian": "le",
+  "doc": "RIFF container with form type WAVE and a sequence of chunks padded to even lengths.",
+  "seq": [
+    { "id": "riff_magic", "type": "bytes", "contents": "RIFF" },
+    { "id": "riff_size", "type": "u4", "doc": "File size minus 8" },
+    { "id": "form_type", "type": "bytes", "contents": "WAVE" },
+    { "id": "chunks", "type": "chunk", "repeat": "eos" }
+  ],
+  "types": {
+    "chunk": {
+      "seq": [
+        { "id": "chunk_id", "type": "str", "size": 4, "encoding": "ASCII" },
+        { "id": "length", "type": "u4" },
+        { "id": "format", "type": "format_body", "size": "length", "if": "chunk_id == \"fmt \"" },
+        { "id": "body", "type": "bytes", "size": "length", "if": "chunk_id != \"fmt \"" },
+        { "id": "pad", "type": "bytes", "size": "length % 2" }
+      ]
+    },
+    "format_body": {
+      "seq": [
+        { "id": "audio_format", "type": "u2" },
+        { "id": "channels", "type": "u2" },
+        { "id": "sample_rate", "type": "u4" },
+        { "id": "byte_rate", "type": "u4" },
+        { "id": "block_align", "type": "u2" },
+        { "id": "bits_per_sample", "type": "u2" }
+      ]
+    }
+  }
+}

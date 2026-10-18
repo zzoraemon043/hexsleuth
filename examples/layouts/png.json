@@ -1,0 +1,21 @@
+{
+  "id": "png",
+  "title": "PNG image",
+  "fileExtension": "png",
+  "endian": "be",
+  "doc": "PNG signature followed by length-prefixed chunks, each with a 4-byte type and a CRC-32.",
+  "seq": [
+    { "id": "signature", "type": "bytes", "contents": [137, 80, 78, 71, 13, 10, 26, 10] },
+    { "id": "chunks", "type": "chunk", "repeat": "eos" }
+  ],
+  "types": {
+    "chunk": {
+      "seq": [
+        { "id": "length", "type": "u4", "doc": "Length of data in bytes" },
+        { "id": "chunk_type", "type": "str", "size": 4, "encoding": "ASCII" },
+        { "id": "data", "type": "bytes", "size": "length" },
+        { "id": "crc", "type": "u4", "doc": "CRC-32 of chunk_type and data" }
+      ]
+    }
+  }
+}

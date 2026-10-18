@@ -1,0 +1,42 @@
+{
+  "id": "hxsf",
+  "title": "HXSF sample container",
+  "fileExtension": "hxsf",
+  "endian": "le",
+  "doc": "Format designed for the hexsleuth tests: a header, an offset table of 20-byte entries, a pool of null-terminated names and a data area with raw and zlib-compressed sections.",
+  "seq": [
+    { "id": "header", "type": "header" },
+    { "id": "entries", "type": "entry", "repeat": "expr", "repeatExpr": "header.entry_count" },
+    { "id": "name_pool", "type": "bytes", "size": "header.pool_size" }
+  ],
+  "types": {
+    "header": {
+      "seq": [
+        { "id": "magic", "type": "bytes", "contents": "HXSF" },
+        { "id": "version", "type": "u2" },
+        { "id": "flags", "type": "u2" },
+        { "id": "file_size", "type": "u4" },
+        { "id": "entry_count", "type": "u4" },
+        { "id": "table_offset", "type": "u4" },
+        { "id": "pool_offset", "type": "u4" },
+        { "id": "pool_size", "type": "u4" },
+        { "id": "data_offset", "type": "u4" }
+      ]
+    },
+    "entry": {
+      "seq": [
+        { "id": "name_offset", "type": "u4", "doc": "Offset of the name inside the pool" },
+        { "id": "kind", "type": "u2" },
+        { "id": "codec", "type": "u2", "doc": "0 stored, 1 zlib" },
+        { "id": "data_offset", "type": "u4" },
+        { "id": "stored_size", "type": "u4" },
+        { "id": "raw_size", "type": "u4" }
+      ],
+      "instances": {
+        "name": { "pos": "_root.header.pool_offset + name_offset", "type": "strz", "encoding": "ASCII" },
+        "stored_data": { "pos": "data_offset", "type": "bytes", "size": "stored_size", "if": "codec == 0" },
+        "inflated_data": { "pos": "data_offset", "type": "bytes", "size": "stored_size", "process": "zlib", "if": "codec == 1" }
+      }
+    }
+  }
+}
