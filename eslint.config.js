@@ -8,6 +8,9 @@ const forbidComments = {
     return {
       Program() {
         for (const comment of context.sourceCode.getAllComments()) {
+          if (comment.type === "Shebang") {
+            continue;
+          }
           context.report({ loc: comment.loc, message: "Code comments are not allowed. Use clear names instead." });
         }
       },
