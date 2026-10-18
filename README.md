@@ -6,7 +6,7 @@ hexsleuth lets AI coding agents work out the structure of unknown binary file fo
 
 [English](#english) | [繁體中文](#繁體中文)
 
-> Status: early development, version 0.1.0. Read [docs/responsible-use.md](docs/responsible-use.md) before you use it.
+> Status: early development, version 0.1.1. Read [docs/responsible-use.md](docs/responsible-use.md) before you use it.
 
 ---
 
@@ -34,7 +34,13 @@ High-entropy data that no supported compression explains is reported as `possibl
 
 ### Install
 
-Requires Node.js 22.12 or later. The package is not published to npm yet, so install from source:
+Requires Node.js 22.12 or later.
+
+```sh
+npm install -g hexsleuth
+```
+
+To run from source instead:
 
 ```sh
 git clone https://github.com/zzoraemon043/hexsleuth.git
@@ -43,8 +49,6 @@ npm ci
 npm run build
 npm link
 ```
-
-`npm link` puts the `hexsleuth` command on your path. Without it, run `node dist/cli/main.js` instead.
 
 ### Use with an MCP client
 
@@ -173,7 +177,13 @@ ImHex、010 Editor、Kaitai Struct 都是很好的工具，但前提是你已經
 
 ### 安裝
 
-需要 Node.js 22.12 以上。目前尚未發布到 npm，請從原始碼安裝：
+需要 Node.js 22.12 以上。
+
+```sh
+npm install -g hexsleuth
+```
+
+如果要從原始碼執行：
 
 ```sh
 git clone https://github.com/zzoraemon043/hexsleuth.git
@@ -182,8 +192,6 @@ npm ci
 npm run build
 npm link
 ```
-
-`npm link` 會把 `hexsleuth` 指令加入路徑；不執行的話，改用 `node dist/cli/main.js`。
 
 ### 搭配 MCP 用戶端
 
