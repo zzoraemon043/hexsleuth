@@ -19,7 +19,7 @@ const forbidComments = {
 };
 
 export default tseslint.config(
-  { ignores: ["dist/**", "node_modules/**", "coverage/**", "fixtures/**", ".work/**"] },
+  { ignores: ["dist/**", "node_modules/**", "coverage/**", "fixtures/**", ".work/**", "out/**", ".hexsleuth-work/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

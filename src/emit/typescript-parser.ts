@@ -2,7 +2,7 @@ import { contentsBytes, parseScalarType } from "../layout/types.js";
 import type { Layout, NamedField, TypeSpec } from "../layout/schema.js";
 import { TypeScriptExpressions } from "./expression-ts.js";
 import { EmitError, parseFunctionName, pascalCase, readFunctionName } from "./naming.js";
-import { parserRuntime } from "./runtime-template.js";
+import { inflateImport, parserRuntime, runtimeHelpers } from "./runtime-template.js";
 import { LayoutTypes, type StaticType } from "./static-types.js";
 import { orderInstances } from "./instance-order.js";
 
@@ -36,15 +36,20 @@ class ParserWriter {
   }
 
   write(): string {
-    const parts = [parserRuntime];
+    const body: string[] = [];
     for (const [name, spec] of this.types.allTypes()) {
-      parts.push(this.interfaceFor(name, spec));
+      body.push(this.interfaceFor(name, spec));
     }
     for (const [name, spec] of this.types.allTypes()) {
-      parts.push(this.parseFunction(name, spec));
+      body.push(this.parseFunction(name, spec));
     }
-    parts.push(this.entryFunction());
-    return `${parts.join("\n")}`;
+    body.push(this.entryFunction());
+    const code = body.join("\n");
+    const helpers = Object.entries(runtimeHelpers)
+      .filter(([name]) => code.includes(`${name}(`))
+      .map(([, helper]) => helper);
+    const header = code.includes("inflate(") ? `${inflateImport}\n` : "";
+    return [`${header}${parserRuntime}`, ...helpers, code].join("\n");
   }
 
   private interfaceFor(name: string, spec: TypeSpec): string {

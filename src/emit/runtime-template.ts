@@ -1,6 +1,4 @@
-export const parserRuntime = `import { inflateSync } from "node:zlib";
-
-export class ParseError extends Error {}
+export const parserRuntime = `export class ParseError extends Error {}
 
 export class ByteStream {
   pos = 0;
@@ -87,17 +85,22 @@ export class ByteStream {
     return new DataView(bytes.buffer, bytes.byteOffset, width);
   }
 }
+`;
 
-function decode(bytes: Uint8Array, encoding: string): string {
+export const runtimeHelpers = {
+  decode: `function decode(bytes: Uint8Array, encoding: string): string {
   const label = encoding.toLowerCase() === "ascii" ? "latin1" : encoding.toLowerCase();
   return new TextDecoder(label).decode(bytes);
 }
-
-function inflate(bytes: Uint8Array): Uint8Array {
+`,
+  inflate: `function inflate(bytes: Uint8Array): Uint8Array {
   return new Uint8Array(inflateSync(bytes));
 }
-
-function mod(value: number, divisor: number): number {
+`,
+  mod: `function mod(value: number, divisor: number): number {
   return ((value % divisor) + divisor) % divisor;
 }
-`;
+`,
+} as const;
+
+export const inflateImport = 'import { inflateSync } from "node:zlib";\n';
