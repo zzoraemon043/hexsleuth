@@ -1,24 +1,10 @@
 import { constants, crc32, inflateRawSync, inflateSync } from "node:zlib";
-
-export const compressionMethods = ["zlib", "gzip", "deflate-raw"] as const;
-
-export type CompressionMethod = (typeof compressionMethods)[number];
-
-export interface DecodedStream {
-  method: CompressionMethod;
-  offset: number;
-  compressedSize: number;
-  output: Uint8Array;
-  complete: boolean;
-  evidence: string;
-}
+import { maxOutputLength, type DecodedStream } from "./types.js";
 
 interface InflateResult {
   buffer: Buffer;
   engine: { bytesWritten: number };
 }
-
-const maxOutputLength = 64 * 1024 * 1024;
 
 function inflateWithInfo(input: Uint8Array, raw: boolean): InflateResult {
   const options = { info: true, maxOutputLength } as const;
@@ -26,7 +12,7 @@ function inflateWithInfo(input: Uint8Array, raw: boolean): InflateResult {
   return result as InflateResult;
 }
 
-function isZlibHeader(first: number, second: number): boolean {
+export function isZlibHeader(first: number, second: number): boolean {
   return (first & 0x0f) === 8 && first >> 4 <= 7 && ((first << 8) | second) % 31 === 0;
 }
 
@@ -65,7 +51,7 @@ function longestValidZlibPrefix(bytes: Uint8Array, offset: number): DecodedStrea
   };
 }
 
-function decodeZlib(bytes: Uint8Array, offset: number): DecodedStream | undefined {
+export function decodeZlib(bytes: Uint8Array, offset: number): DecodedStream | undefined {
   const [first, second] = [bytes[offset], bytes[offset + 1]];
   if (first === undefined || second === undefined || !isZlibHeader(first, second)) {
     return undefined;
@@ -108,7 +94,7 @@ function gzipHeaderLength(bytes: Uint8Array, offset: number): number | undefined
   return position <= bytes.length ? position - offset : undefined;
 }
 
-function decodeGzip(bytes: Uint8Array, offset: number): DecodedStream | undefined {
+export function decodeGzip(bytes: Uint8Array, offset: number): DecodedStream | undefined {
   const headerLength = gzipHeaderLength(bytes, offset);
   if (headerLength === undefined) {
     return undefined;
@@ -134,7 +120,7 @@ function decodeGzip(bytes: Uint8Array, offset: number): DecodedStream | undefine
   };
 }
 
-function decodeDeflateRaw(bytes: Uint8Array, offset: number): DecodedStream | undefined {
+export function decodeDeflateRaw(bytes: Uint8Array, offset: number): DecodedStream | undefined {
   const result = inflateWithInfo(bytes.subarray(offset), true);
   if (result.buffer.length === 0) {
     return undefined;
@@ -147,46 +133,4 @@ function decodeDeflateRaw(bytes: Uint8Array, offset: number): DecodedStream | un
     complete: true,
     evidence: "raw deflate data inflates to the final block; raw deflate has no header or checksum, so this is weaker evidence",
   };
-}
-
-const decoders: Record<CompressionMethod, (bytes: Uint8Array, offset: number) => DecodedStream | undefined> = {
-  zlib: decodeZlib,
-  gzip: decodeGzip,
-  "deflate-raw": decodeDeflateRaw,
-};
-
-export function tryDecode(bytes: Uint8Array, offset: number, method: CompressionMethod): DecodedStream | undefined {
-  try {
-    return decoders[method](bytes, offset);
-  } catch {
-    return undefined;
-  }
-}
-
-export const signatureMethods: CompressionMethod[] = ["zlib", "gzip"];
-
-export function hasSignature(bytes: Uint8Array, offset: number): boolean {
-  const first = bytes[offset];
-  const second = bytes[offset + 1];
-  if (first === undefined || second === undefined) {
-    return false;
-  }
-  return isZlibHeader(first, second) || (first === 0x1f && second === 0x8b);
-}
-
-export function findStreamsInWindow(bytes: Uint8Array, start: number, end: number): DecodedStream[] {
-  const found: DecodedStream[] = [];
-  let offset = Math.max(0, start);
-  while (offset < Math.min(end, bytes.length - 1)) {
-    if (hasSignature(bytes, offset)) {
-      const decoded = signatureMethods.map((method) => tryDecode(bytes, offset, method)).find((stream) => stream !== undefined);
-      if (decoded) {
-        found.push(decoded);
-        offset += Math.max(1, decoded.compressedSize);
-        continue;
-      }
-    }
-    offset += 1;
-  }
-  return found;
 }

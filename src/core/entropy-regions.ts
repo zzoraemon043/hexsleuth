@@ -1,4 +1,4 @@
-import { findStreamsInWindow, type DecodedStream } from "./compression.js";
+import { findStreamsInWindow, type DecodedStream } from "./compression/index.js";
 import { highEntropyThreshold, roundTo, shannonEntropy } from "./entropy.js";
 
 export interface EntropyBlock {

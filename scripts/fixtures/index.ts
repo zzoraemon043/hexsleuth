@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { compressionFixtures } from "./compression.js";
 import { buildHxsf, hxsfDocuments } from "./hxsf.js";
 import { buildPng, pngSamples } from "./png.js";
 import { randomText, seededRandom } from "./random.js";
@@ -9,11 +10,12 @@ import { buildZip, type ZipEntry } from "./zip.js";
 export interface FixtureFile {
   path: string;
   size: number;
+  facts?: Record<string, string | number>;
 }
 
 export type FixtureManifest = Record<string, FixtureFile[]>;
 
-type NamedBytes = [name: string, bytes: Uint8Array];
+type NamedBytes = [name: string, bytes: Uint8Array, facts?: Record<string, string | number>];
 
 function zipSamples(): ZipEntry[][] {
   const random = seededRandom(31);
@@ -34,6 +36,7 @@ function fixtureSets(): Record<string, NamedBytes[]> {
     zip: zipSamples().map((entries, index) => [`sample-${index + 1}.zip`, buildZip(entries)]),
     wav: wavSamples.map((options, index) => [`sample-${index + 1}.wav`, buildWav(options)]),
     hxsf: hxsfDocuments(seededRandom(53)).map((document, index) => [`sample-${index + 1}.hxsf`, buildHxsf(document)]),
+    compression: compressionFixtures().map((fixture) => [fixture.name, fixture.bytes, fixture.facts]),
   };
 }
 
@@ -42,10 +45,10 @@ export function generateFixtures(outputDirectory: string, baseDirectory = proces
   for (const [format, files] of Object.entries(fixtureSets())) {
     const directory = join(outputDirectory, format);
     mkdirSync(directory, { recursive: true });
-    manifest[format] = files.map(([name, bytes]) => {
+    manifest[format] = files.map(([name, bytes, facts]) => {
       const path = join(directory, name);
       writeFileSync(path, bytes);
-      return { path: relative(baseDirectory, path), size: bytes.length };
+      return { path: relative(baseDirectory, path), size: bytes.length, ...(facts ? { facts } : {}) };
     });
   }
   writeFileSync(join(outputDirectory, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);

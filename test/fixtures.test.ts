@@ -26,8 +26,11 @@ function ascii(bytes: Uint8Array, start: number, length: number): string {
 describe("fixture generation", () => {
   it("produces at least five distinct samples per format", () => {
     const manifest = fixtureManifest();
-    expect(Object.keys(manifest).sort()).toEqual(["hxsf", "png", "wav", "zip"]);
-    for (const files of Object.values(manifest)) {
+    expect(Object.keys(manifest).sort()).toEqual(["compression", "hxsf", "png", "wav", "zip"]);
+    for (const [format, files] of Object.entries(manifest)) {
+      if (format === "compression") {
+        continue;
+      }
       expect(files.length).toBeGreaterThanOrEqual(5);
       const digests = new Set(files.map((file) => createHash("sha256").update(readFileSync(file.path)).digest("hex")));
       expect(digests.size).toBe(files.length);
