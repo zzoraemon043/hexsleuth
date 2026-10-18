@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
     exclude: ["node_modules/**", "dist/**", ".work/**", "fixtures/**"],
+    globalSetup: ["test/global-setup.ts"],
     testTimeout: 30000,
   },
 });
