@@ -9,7 +9,7 @@ export const inferFieldsInput = {
   region: z
     .object({ offset: z.number().int().min(0), length: z.number().int().min(1) })
     .optional()
-    .describe("Range, from the start of each file, in which to look for fields; defaults to the first 256 bytes"),
+    .describe("Report only fields that start in this range, counted from the start of each file; defaults to the first 256 bytes. Fields outside the range still serve as evidence."),
   endScanLength: z
     .number()
     .int()
@@ -35,7 +35,8 @@ export function inferFields(input: z.infer<z.ZodObject<typeof inferFieldsInput>>
   const samples = input.files.map((file) => ({ file, bytes: loadFile(file).bytes }));
   const region = input.region ?? { offset: 0, length: defaultScanLength };
   const result = inferFindings(samples, {
-    plan: { startFrom: region.offset, startTo: region.offset + region.length, endScanLength: input.endScanLength },
+    plan: { startFrom: 0, startTo: Math.max(defaultScanLength, region.offset + region.length), endScanLength: input.endScanLength },
+    report: region,
     minConfidence: input.minConfidence,
     maxFindings: input.maxFindings,
   });

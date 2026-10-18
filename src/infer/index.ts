@@ -11,6 +11,7 @@ import { findVersions } from "./version.js";
 
 export interface InferOptions {
   plan: ScanPlan;
+  report: { offset: number; length: number };
   minConfidence: number;
   maxFindings: number;
 }
@@ -77,6 +78,13 @@ function mergeSameField(findings: Finding[]): Finding[] {
   return [...merged.values()];
 }
 
+function isReported(finding: Finding, report: { offset: number; length: number }): boolean {
+  if (!finding.field || finding.field.anchor === "end") {
+    return true;
+  }
+  return finding.field.position >= report.offset && finding.field.position < report.offset + report.length;
+}
+
 export interface InferResult {
   findings: Finding[];
   countsByKind: Partial<Record<FindingKind, number>>;
@@ -107,6 +115,7 @@ export function inferFindings(samples: Sample[], options: InferOptions): InferRe
   });
   const all = [...(magic ? [magic] : []), ...structural, ...versions, ...(endianness ? [endianness] : [])];
   const findings = all
+    .filter((finding) => isReported(finding, options.report))
     .filter((finding) => finding.confidence >= options.minConfidence)
     .sort(rank)
     .slice(0, options.maxFindings);

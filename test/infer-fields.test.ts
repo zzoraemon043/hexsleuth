@@ -109,6 +109,13 @@ describe("infer_fields on HXSF", () => {
     expect(findingAt(output, "length", "0x0008", "u4le")).toBeDefined();
   });
 
+  it("uses fields outside the region as evidence for fields inside it", async () => {
+    const output = await infer("hxsf", { region: { offset: 32, length: 20 }, endScanLength: 0 });
+    const entryDataOffset = findingAt(output, "offset", "0x0028", "u4le");
+    expect(entryDataOffset?.check).toBe("value equals u4le at 0x0014 + u4le at 0x0018 in 6 of 6 samples, so it marks where that region ends");
+    expect(output.findings.every((finding) => !finding.field || (finding.field.position >= 32 && finding.field.position < 52))).toBe(true);
+  });
+
   it("sorts findings by confidence and respects the limits", async () => {
     const output = await infer("hxsf", { maxFindings: 3, minConfidence: 0.5 });
     expect(output.findings).toHaveLength(3);
