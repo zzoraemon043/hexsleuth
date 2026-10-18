@@ -37,6 +37,11 @@ describe("fixture generation", () => {
     }
   });
 
+  it("records portable forward-slash paths in the manifest", () => {
+    const paths = Object.values(fixtureManifest()).flatMap((files) => files.map((file) => file.path));
+    expect(paths.every((path) => !path.includes("\\") && path.startsWith("fixtures/"))).toBe(true);
+  });
+
   it("is deterministic", () => {
     const first = mkdtempSync(join(tmpdir(), "hexsleuth-a-"));
     const second = mkdtempSync(join(tmpdir(), "hexsleuth-b-"));

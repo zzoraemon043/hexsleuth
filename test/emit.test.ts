@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
 import { parse as parseYaml } from "yaml";
@@ -62,7 +62,7 @@ describe("emit", () => {
     for (const format of exampleFormats) {
       const output = emitted(format);
       expect(output.verification).toEqual({ samples: 6, parsed: 6, fullyRead: 6 });
-      expect(Object.values(output.files).map((path) => path.split("/").at(-1))).toEqual([`${format}.md`, `${format}.ksy`, `${format}.ts`, `${format}.test.ts`]);
+      expect(Object.values(output.files).map((path) => basename(path)).sort()).toEqual([`${format}.ksy`, `${format}.md`, `${format}.test.ts`, `${format}.ts`]);
     }
   });
 

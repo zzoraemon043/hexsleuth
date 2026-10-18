@@ -10,7 +10,7 @@ import { runCli } from "../src/cli/run.js";
 import { createServer } from "../src/mcp/server.js";
 import { tools } from "../src/tools/registry.js";
 import { exampleLayoutPath } from "./helpers-layout.js";
-import { fixtureManifest, fixturePaths } from "./helpers.js";
+import { fixtureManifest, fixtureNamed, fixturePaths } from "./helpers.js";
 
 const scratch = mkdtempSync(join(tmpdir(), "hexsleuth-mcp-"));
 const client = new Client({ name: "hexsleuth-test", version: "0.0.0" });
@@ -33,7 +33,7 @@ async function cli(args: string[], stdin = ""): Promise<{ code: number; stdout: 
   return { code, stdout, stderr };
 }
 
-const zlibFixture = fixtureManifest().compression?.find((file) => file.path.endsWith("/zlib.bin"));
+const zlibFixture = fixtureNamed("compression", "zlib.bin");
 
 const toolInputs: Record<string, Record<string, unknown>> = {
   probe: { file: fixturePaths("png")[0] },

@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { xxhash32 } from "../src/core/compression/xxhash32.js";
 import { runTool } from "../src/tools/definition.js";
 import { detectCompressionTool } from "../src/tools/detect-compression.js";
-import { fixtureManifest } from "./helpers.js";
+import { fixtureNamed } from "./helpers.js";
 
 const workDir = mkdtempSync(join(tmpdir(), "hexsleuth-detect-"));
 
@@ -14,7 +14,7 @@ afterAll(() => {
 });
 
 function compressionFixture(name: string): { path: string; facts: Record<string, string | number> } {
-  const file = fixtureManifest().compression?.find((entry) => entry.path.endsWith(`/${name}`));
+  const file = fixtureNamed("compression", name);
   if (!file?.facts) {
     throw new Error(`missing fixture ${name}`);
   }

@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 import { compressionFixtures } from "./compression.js";
 import { buildHxsf, hxsfDocuments } from "./hxsf.js";
 import { buildPng, pngSamples } from "./png.js";
@@ -40,6 +40,10 @@ function fixtureSets(): Record<string, NamedBytes[]> {
   };
 }
 
+function portablePath(path: string): string {
+  return path.split(sep).join("/");
+}
+
 export function generateFixtures(outputDirectory: string, baseDirectory = process.cwd()): FixtureManifest {
   const manifest: FixtureManifest = {};
   for (const [format, files] of Object.entries(fixtureSets())) {
@@ -48,7 +52,7 @@ export function generateFixtures(outputDirectory: string, baseDirectory = proces
     manifest[format] = files.map(([name, bytes, facts]) => {
       const path = join(directory, name);
       writeFileSync(path, bytes);
-      return { path: relative(baseDirectory, path), size: bytes.length, ...(facts ? { facts } : {}) };
+      return { path: portablePath(relative(baseDirectory, path)), size: bytes.length, ...(facts ? { facts } : {}) };
     });
   }
   writeFileSync(join(outputDirectory, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);

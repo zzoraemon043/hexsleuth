@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import type { FixtureManifest } from "../scripts/fixtures/index.js";
 
 export function fixtureManifest(): FixtureManifest {
@@ -12,4 +12,8 @@ export function fixturePaths(format: string): string[] {
 
 export function readFixture(path: string): Uint8Array {
   return new Uint8Array(readFileSync(path));
+}
+
+export function fixtureNamed(format: string, name: string): FixtureManifest[string][number] | undefined {
+  return (fixtureManifest()[format] ?? []).find((file) => basename(file.path) === name);
 }
