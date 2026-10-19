@@ -6,6 +6,8 @@ hexsleuth lets AI coding agents work out the structure of unknown binary file fo
 
 [English](#english) | [繁體中文](#繁體中文)
 
+![How hexsleuth works: samples go through probe, compare, infer_fields and detect_compression, a layout is checked with verify_layout, then emit writes a spec, a Kaitai Struct definition, a parser and tests](docs/images/flow.webp)
+
 > Status: early development, version 0.1.1. Read [docs/responsible-use.md](docs/responsible-use.md) before you use it.
 
 ---
