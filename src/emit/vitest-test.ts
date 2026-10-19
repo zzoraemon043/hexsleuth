@@ -53,7 +53,10 @@ export function expectationsFor(tree: TreeNode): Expectation[] {
 }
 
 function literal(value: number | string): string {
-  return typeof value === "number" ? String(value) : JSON.stringify(value);
+  if (typeof value === "string") {
+    return JSON.stringify(value);
+  }
+  return Object.is(value, -0) ? "-0" : String(value);
 }
 
 export function emitVitestTest(layout: Layout, parserModule: string, outDir: string, samples: SampleVerification[]): string {

@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 import ts from "typescript";
 import { parse as parseYaml } from "yaml";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { expectationsFor } from "../src/emit/vitest-test.js";
+import { emitVitestTest, expectationsFor } from "../src/emit/vitest-test.js";
 import { parseLayout } from "../src/layout/load.js";
 import { verifySample } from "../src/layout/verify.js";
 import { runTool } from "../src/tools/definition.js";
@@ -112,6 +112,13 @@ describe("emit", () => {
         }
       }
     }
+  });
+
+  it("keeps the sign of -0 in emitted expectations", () => {
+    const tree = { name: "f", type: "f", offset: 0, size: 8, fields: [{ name: "x", type: "f8", offset: 0, size: 8, value: -0 }] };
+    const sample = { file: "out/a.bin", size: 8, ok: true, error: null, readBytes: 8, unreadBytes: 0, unread: [], tree };
+    const source = emitVitestTest({ id: "f", endian: "le", seq: [] }, "./f.js", "out", [sample]);
+    expect(source).toContain("expect(parsed.x).toBe(-0);");
   });
 
   it("emits Vitest tests that pass when run on their own", () => {
