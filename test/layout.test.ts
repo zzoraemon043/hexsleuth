@@ -146,6 +146,17 @@ describe("verify_layout", () => {
     expect(entries?.itemsTruncated).toBe(4);
   });
 
+  it("stops a repeat eos item that consumes no bytes", async () => {
+    const layout = {
+      id: "z",
+      endian: "le",
+      seq: [{ id: "e", type: "empty", repeat: "eos" }],
+      types: { empty: { seq: [{ id: "x", type: "u1", if: "false" }] } },
+    };
+    const output = await runTool(verifyLayoutTool, { files: fixturePaths("png").slice(0, 1), layout, includeTree: false });
+    expect(output.samples[0]?.error).toEqual({ path: "z.e[0]", offset: 0, message: "repeat item consumed 0 bytes" });
+  });
+
   it("requires a layout", async () => {
     await expect(runTool(verifyLayoutTool, { files: fixturePaths("png") })).rejects.toThrow(/layout or layoutFile/);
   });

@@ -164,7 +164,11 @@ export class LayoutInterpreter {
           ? this.guard(() => evaluateNumber(field.repeatExpr ?? 0, object, this.resolveName, "repeatExpr"), path, stream)
           : Number.POSITIVE_INFINITY;
       for (let index = 0; index < count && (field.repeat === "expr" || !stream.isEof); index += 1) {
+        const itemStart = stream.pos;
         values.push(this.readOne(object, { ...field, id: `${field.id}[${index}]` }, stream, `${path}[${index}]`, (item) => node.items?.push(item)));
+        if (field.repeat === "eos" && stream.pos === itemStart) {
+          throw new ParseError(`${path}[${index}]`, stream.absolute(itemStart), "repeat item consumed 0 bytes");
+        }
       }
     } finally {
       node.size = stream.pos - start;
