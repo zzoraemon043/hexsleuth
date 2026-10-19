@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { z } from "zod";
 import { compressionMethods, signatureAt, tryDecode, type CompressionMethod, type DecodedStream } from "../core/compression/index.js";
-import { highEntropyThreshold, roundTo, shannonEntropy } from "../core/entropy.js";
+import { highEntropyThreshold, minimumEntropyBlock, roundTo, shannonEntropy } from "../core/entropy.js";
 import { clampRange, loadFile } from "../core/files.js";
 import { toHex } from "../core/hex.js";
 import { defineTool } from "./definition.js";
@@ -85,7 +85,7 @@ function verdictFor(detected: DetectedStream[], entropy: number, length: number)
   if (detected.length > 0) {
     return { verdict: "compressed", note: "A supported compression format decodes at this offset." };
   }
-  if (entropy >= highEntropyThreshold(Math.min(length, entropySampleLength))) {
+  if (length >= minimumEntropyBlock && entropy >= highEntropyThreshold(Math.min(length, entropySampleLength))) {
     return {
       verdict: "possibly-encrypted",
       note: "High entropy and no supported compression decodes here. hexsleuth reports this and stops; it does not attempt decryption, key search or XOR guessing.",

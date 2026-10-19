@@ -1,5 +1,5 @@
 import { findStreamsInWindow, type DecodedStream } from "./compression/index.js";
-import { highEntropyThreshold, roundTo, shannonEntropy } from "./entropy.js";
+import { highEntropyThreshold, minimumEntropyBlock, roundTo, shannonEntropy } from "./entropy.js";
 
 export interface EntropyBlock {
   offset: number;
@@ -29,7 +29,7 @@ function mergeHighBlocks(blocks: EntropyBlock[]): EntropyBlock[][] {
   const groups: EntropyBlock[][] = [];
   let current: EntropyBlock[] = [];
   for (const block of blocks) {
-    const isHigh = block.length >= 32 && block.entropy >= highEntropyThreshold(block.length);
+    const isHigh = block.length >= minimumEntropyBlock && block.entropy >= highEntropyThreshold(block.length);
     if (isHigh) {
       current.push(block);
     } else if (current.length > 0) {

@@ -16,6 +16,8 @@ export function shannonEntropy(bytes: Uint8Array): number {
   return entropy;
 }
 
+export const minimumEntropyBlock = 32;
+
 export function highEntropyThreshold(blockLength: number): number {
   return 0.85 * Math.log2(Math.min(256, Math.max(2, blockLength)));
 }

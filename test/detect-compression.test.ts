@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -60,6 +60,15 @@ describe("detect_compression", () => {
       expect(output.verdict).toBe("possibly-encrypted");
       expect(output.detected).toEqual([]);
       expect(output.note).toContain("does not attempt decryption");
+    }
+  });
+
+  it("does not call short inputs possibly-encrypted", async () => {
+    for (const text of ["HDR!", "abcdefghijklmnopqrstuvwxyz"]) {
+      const path = join(workDir, `short-${text.length}.bin`);
+      writeFileSync(path, text);
+      const output = await runTool(detectCompressionTool, { file: path, writeOutput: false });
+      expect(output.verdict).toBe("not-compressed");
     }
   });
 
