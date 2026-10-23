@@ -82,7 +82,7 @@ hexsleuth tools
 
 ### Example
 
-This is real output from the repository fixtures (`npm run fixtures`): six samples of HXSF, a format made up for the tests. Arrays are shortened.
+This is real output from the repository fixtures (`npm run fixtures`): six samples of HXSF, a format made up for the tests. Arrays are shortened. The npm package ships only `dist`, so run these from a source checkout after `npm install` and `npm run fixtures`.
 
 ```sh
 hexsleuth infer_fields '{"files":["fixtures/hxsf/sample-1.hxsf","fixtures/hxsf/sample-2.hxsf","fixtures/hxsf/sample-3.hxsf","fixtures/hxsf/sample-4.hxsf","fixtures/hxsf/sample-5.hxsf","fixtures/hxsf/sample-6.hxsf"]}'
@@ -225,7 +225,7 @@ hexsleuth tools
 
 ### 範例
 
-以下是倉庫測試資料（`npm run fixtures` 產生）的實際輸出：六個 HXSF 樣本，HXSF 是專為測試設計的格式。陣列已縮短。
+以下是倉庫測試資料（`npm run fixtures` 產生）的實際輸出：六個 HXSF 樣本，HXSF 是專為測試設計的格式。陣列已縮短。npm 套件只包含 `dist`，這些範例要在原始碼目錄先執行 `npm install` 與 `npm run fixtures` 再跑。
 
 ```sh
 hexsleuth infer_fields '{"files":["fixtures/hxsf/sample-1.hxsf","fixtures/hxsf/sample-2.hxsf","fixtures/hxsf/sample-3.hxsf","fixtures/hxsf/sample-4.hxsf","fixtures/hxsf/sample-5.hxsf","fixtures/hxsf/sample-6.hxsf"]}'
