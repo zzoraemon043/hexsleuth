@@ -52,6 +52,12 @@ function printableTag(bytes: Uint8Array): string | undefined {
   return String.fromCharCode(...tag);
 }
 
+const unknownTagPrefix = "unknown printable tag ";
+
+export function isKnownSignature(candidate: MagicCandidate): boolean {
+  return !candidate.name.startsWith(unknownTagPrefix);
+}
+
 export function findMagic(bytes: Uint8Array, baseOffset: number): MagicCandidate[] {
   const candidates: MagicCandidate[] = [];
   for (const signature of signatures) {
@@ -67,7 +73,7 @@ export function findMagic(bytes: Uint8Array, baseOffset: number): MagicCandidate
   }
   const tag = printableTag(bytes);
   if (tag !== undefined && candidates.length === 0) {
-    candidates.push({ offset: baseOffset, bytes: toHex(bytes.subarray(0, 4)), name: `unknown printable tag "${tag}"`, confidence: 0.5 });
+    candidates.push({ offset: baseOffset, bytes: toHex(bytes.subarray(0, 4)), name: `${unknownTagPrefix}"${tag}"`, confidence: 0.5 });
   }
   return candidates;
 }

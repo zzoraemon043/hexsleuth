@@ -1,5 +1,5 @@
 import { toAsciiPreview, toHex } from "../core/hex.js";
-import { findMagic } from "../core/signatures.js";
+import { findMagic, isKnownSignature } from "../core/signatures.js";
 import { sampleLimits, scoreConfidence, type Finding } from "./finding.js";
 import type { Sample } from "./slots.js";
 
@@ -30,7 +30,7 @@ export function findMagicFinding(samples: Sample[]): Finding | undefined {
   }
   const first = samples[0] as Sample;
   const bytes = first.bytes.subarray(0, length);
-  const known = findMagic(first.bytes, 0).find((candidate) => candidate.offset === 0);
+  const known = findMagic(first.bytes, 0).find((candidate) => candidate.offset === 0 && isKnownSignature(candidate));
   const raw = 0.6 + (length >= 4 ? 0.2 : 0) + (known ? 0.15 : 0);
   return {
     id: "magic@start:0",

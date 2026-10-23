@@ -78,6 +78,7 @@ describe("infer_fields on HXSF", () => {
   it("recovers the header fields of the custom format", async () => {
     const output = await infer("hxsf");
     expect(findingAt(output, "magic", "0x0000", "bytes[4]")?.claim).toContain('"HXSF"');
+    expect(findingAt(output, "magic", "0x0000", "bytes[4]")?.claim).not.toContain("known signature");
     expect(findingAt(output, "length", "0x0008", "u4le")?.claim).toContain("total file size");
     const count = findingAt(output, "count", "0x000c", "u4le");
     expect(count?.check).toBe("u4le at 0x0014 equals 32 + 20 x value in 6 of 6 samples (6 distinct counts)");
