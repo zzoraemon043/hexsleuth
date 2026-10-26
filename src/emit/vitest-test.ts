@@ -8,6 +8,7 @@ export interface Expectation {
   accessor: string;
   matcher: "toBe" | "toHaveLength";
   value: number | string;
+  bigint?: boolean;
 }
 
 const maxExpectationsPerSample = 12;
@@ -40,7 +41,8 @@ function collectExpectations(node: TreeNode, path: string[], output: Expectation
     return;
   }
   if (typeof node.value === "number" || typeof node.value === "string") {
-    output.push({ accessor: accessorFor(path), matcher: "toBe", value: node.value });
+    const bigint = typeof node.value === "string" && /^[us]8(le|be)?$/.test(node.type);
+    output.push({ accessor: accessorFor(path), matcher: "toBe", value: node.value, ...(bigint ? { bigint } : {}) });
   }
 }
 
@@ -64,7 +66,7 @@ export function emitVitestTest(layout: Layout, parserModule: string, outDir: str
   const cases = samples.map((sample) => {
     const expectations = sample.tree ? expectationsFor(sample.tree) : [];
     const path = relative(outDir, sample.file).split("\\").join("/");
-    const lines = expectations.map((item) => `    expect(${item.accessor}).${item.matcher}(${literal(item.value)});`);
+    const lines = expectations.map((item) => `    expect(${item.accessor}).${item.matcher}(${item.bigint ? `${item.value}n` : literal(item.value)});`);
     return [
       `  it(${JSON.stringify(`parses ${path}`)}, () => {`,
       `    const parsed = ${parse}(readSample(${JSON.stringify(path)}));`,

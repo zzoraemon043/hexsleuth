@@ -1,5 +1,9 @@
 export const parserRuntime = `export class ParseError extends Error {}
 
+function int64Value(value: bigint): number | bigint {
+  return value >= BigInt(Number.MIN_SAFE_INTEGER) && value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : value;
+}
+
 export class ByteStream {
   pos = 0;
 
@@ -47,24 +51,30 @@ export class ByteStream {
     return new ByteStream(this.readBytes(length));
   }
 
-  readUnsigned(width: 1 | 2 | 4 | 8, littleEndian: boolean): number {
+  readUnsigned(width: 1 | 2 | 4, littleEndian: boolean): number {
     const view = this.view(width);
     switch (width) {
       case 1: return view.getUint8(0);
       case 2: return view.getUint16(0, littleEndian);
-      case 4: return view.getUint32(0, littleEndian);
-      default: return Number(view.getBigUint64(0, littleEndian));
+      default: return view.getUint32(0, littleEndian);
     }
   }
 
-  readSigned(width: 1 | 2 | 4 | 8, littleEndian: boolean): number {
+  readSigned(width: 1 | 2 | 4, littleEndian: boolean): number {
     const view = this.view(width);
     switch (width) {
       case 1: return view.getInt8(0);
       case 2: return view.getInt16(0, littleEndian);
-      case 4: return view.getInt32(0, littleEndian);
-      default: return Number(view.getBigInt64(0, littleEndian));
+      default: return view.getInt32(0, littleEndian);
     }
+  }
+
+  readUnsigned64(littleEndian: boolean): number | bigint {
+    return int64Value(this.view(8).getBigUint64(0, littleEndian));
+  }
+
+  readSigned64(littleEndian: boolean): number | bigint {
+    return int64Value(this.view(8).getBigInt64(0, littleEndian));
   }
 
   readFloat(width: 4 | 8, littleEndian: boolean): number {
@@ -88,6 +98,13 @@ export class ByteStream {
 `;
 
 export const runtimeHelpers = {
+  safeNumber: `function safeNumber(value: number | bigint | undefined): number {
+  if (typeof value === "bigint") {
+    throw new ParseError(\`\${value} does not fit in a JavaScript number\`);
+  }
+  return value as number;
+}
+`,
   decode: `function decode(bytes: Uint8Array, encoding: string): string {
   const label = encoding.toLowerCase() === "ascii" ? "latin1" : encoding.toLowerCase();
   return new TextDecoder(label).decode(bytes);

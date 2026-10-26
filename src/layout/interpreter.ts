@@ -259,7 +259,7 @@ export class LayoutInterpreter {
     }
   }
 
-  private readScalar(stream: Stream, width: 1 | 2 | 4 | 8, kind: "integer" | "float", signed: boolean, littleEndian: boolean, path: string): number {
+  private readScalar(stream: Stream, width: 1 | 2 | 4 | 8, kind: "integer" | "float", signed: boolean, littleEndian: boolean, path: string): number | string {
     const bytes = stream.read(width, path);
     const view = new DataView(bytes.buffer, bytes.byteOffset, width);
     if (kind === "float") {
@@ -269,7 +269,11 @@ export class LayoutInterpreter {
       case 1: return signed ? view.getInt8(0) : view.getUint8(0);
       case 2: return signed ? view.getInt16(0, littleEndian) : view.getUint16(0, littleEndian);
       case 4: return signed ? view.getInt32(0, littleEndian) : view.getUint32(0, littleEndian);
-      default: return Number(signed ? view.getBigInt64(0, littleEndian) : view.getBigUint64(0, littleEndian));
+      default: return int64Value(signed ? view.getBigInt64(0, littleEndian) : view.getBigUint64(0, littleEndian));
     }
   }
+}
+
+function int64Value(value: bigint): number | string {
+  return value >= BigInt(Number.MIN_SAFE_INTEGER) && value <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(value) : value.toString();
 }

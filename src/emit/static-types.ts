@@ -3,7 +3,7 @@ import { parseScalarType } from "../layout/types.js";
 import { EmitError } from "./naming.js";
 
 export type StaticType =
-  | { kind: "int" | "float" | "bool" | "string" | "bytes" | "io" }
+  | { kind: "int" | "int64" | "float" | "bool" | "string" | "bytes" | "io" }
   | { kind: "user"; name: string }
   | { kind: "array"; element: StaticType };
 
@@ -58,7 +58,7 @@ export class LayoutTypes {
   itemType(field: NamedField): StaticType {
     const scalar = parseScalarType(field.type);
     if (scalar) {
-      return { kind: scalar.kind === "float" ? "float" : "int" };
+      return { kind: scalar.kind === "float" ? "float" : scalar.width === 8 ? "int64" : "int" };
     }
     if (field.type === "str" || field.type === "strz") {
       return { kind: "string" };

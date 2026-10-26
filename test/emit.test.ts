@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -49,6 +49,20 @@ function expectedValues(format: string): { file: string; expectations: ReturnTyp
   });
 }
 
+function typeErrors(files: string[]): string[] {
+  const program = ts.createProgram(files, {
+    strict: true,
+    noUncheckedIndexedAccess: true,
+    target: ts.ScriptTarget.ES2023,
+    module: ts.ModuleKind.NodeNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    types: ["node"],
+    noEmit: true,
+    skipLibCheck: true,
+  });
+  return ts.getPreEmitDiagnostics(program).map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+}
+
 function evaluateAccessor(parsed: unknown, accessor: string): unknown {
   return new Function("parsed", `return ${accessor};`)(parsed);
 }
@@ -83,18 +97,7 @@ describe("emit", () => {
 
   it("emits TypeScript that type-checks in strict mode", () => {
     const files = exampleFormats.flatMap((format) => [emitted(format).files.parser, emitted(format).files.test]);
-    const program = ts.createProgram(files, {
-      strict: true,
-      noUncheckedIndexedAccess: true,
-      target: ts.ScriptTarget.ES2023,
-      module: ts.ModuleKind.NodeNext,
-      moduleResolution: ts.ModuleResolutionKind.NodeNext,
-      types: ["node"],
-      noEmit: true,
-      skipLibCheck: true,
-    });
-    const diagnostics = ts.getPreEmitDiagnostics(program).map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
-    expect(diagnostics).toEqual([]);
+    expect(typeErrors(files)).toEqual([]);
   });
 
   it("emits parsers that reproduce the values verify_layout reads", async () => {
@@ -121,6 +124,39 @@ describe("emit", () => {
     expect(source).toContain("expect(parsed.x).toBe(-0);");
   });
 
+  it("keeps 64-bit integers above 2^53 exact", async () => {
+    const outDir = join(emitRoot, "wide");
+    mkdirSync(outDir, { recursive: true });
+    const files = [0xf0, 0xf1, 0xf2].map((low) => {
+      const bytes = new Uint8Array(26);
+      const view = new DataView(bytes.buffer);
+      view.setBigUint64(0, 0xffffffffffffff00n | BigInt(low), true);
+      view.setBigInt64(8, -(2n ** 62n) - BigInt(low), false);
+      view.setBigUint64(16, 2n, true);
+      const file = join(outDir, `sample-${low}.bin`);
+      writeFileSync(file, bytes);
+      return file;
+    });
+    const layout = {
+      id: "wide",
+      endian: "le",
+      seq: [
+        { id: "id", type: "u8" },
+        { id: "delta", type: "s8be" },
+        { id: "len", type: "u8" },
+        { id: "tail", type: "bytes", size: "len" },
+      ],
+    };
+    const output = await runTool(emitTool, { files, layout, outDir });
+    expect(output.verification).toEqual({ samples: 3, parsed: 3, fullyRead: 3 });
+    expect(typeErrors([output.files.parser, output.files.test])).toEqual([]);
+    const tree = verifySample(parseLayout(layout), files[1]!, readFileSync(files[1]!), { includeTree: true, maxArrayItems: 10, maxUnreadRanges: 10 }).tree;
+    expect(tree?.fields?.map((field) => field.value).slice(0, 2)).toEqual(["18446744073709551601", "-4611686018427388145"]);
+    const parserModule = (await import(pathToFileURL(output.files.parser).href)) as { parseWide(bytes: Uint8Array): { id: number | bigint; delta: number | bigint } };
+    expect(parserModule.parseWide(readFileSync(files[2]!))).toMatchObject({ id: 0xfffffffffffffff2n, delta: -(2n ** 62n) - 0xf2n });
+    expect(readFileSync(output.files.test, "utf8")).toContain("expect(parsed.id).toBe(18446744073709551600n);");
+  });
+
   it("emits Vitest tests that pass when run on their own", () => {
     const reportPath = join(emitRoot, "report.json");
     const result = spawnSync(process.execPath, [resolve("node_modules/vitest/vitest.mjs"), "run", "--root", emitRoot, "--reporter", "json", "--outputFile", reportPath], {
@@ -130,7 +166,7 @@ describe("emit", () => {
     expect(result.status, result.stderr).toBe(0);
     const report = JSON.parse(readFileSync(reportPath, "utf8")) as { numTotalTests: number; numPassedTests: number; numFailedTests: number };
     expect(report.numFailedTests).toBe(0);
-    expect(report.numTotalTests).toBe(exampleFormats.length * 6);
+    expect(report.numTotalTests).toBe(exampleFormats.length * 6 + 3);
     expect(report.numPassedTests).toBe(report.numTotalTests);
   }, 60000);
 

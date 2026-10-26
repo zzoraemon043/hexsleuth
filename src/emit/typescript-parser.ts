@@ -11,6 +11,8 @@ function typeScriptType(type: StaticType): string {
     case "int":
     case "float":
       return "number";
+    case "int64":
+      return "number | bigint";
     case "bool":
       return "boolean";
     case "string":
@@ -93,6 +95,9 @@ class ParserWriter {
       const little = this.littleEndian(field);
       if (scalar.kind === "float") {
         return `io.readFloat(${scalar.width}, ${little})`;
+      }
+      if (scalar.width === 8) {
+        return `io.${scalar.signed ? "readSigned64" : "readUnsigned64"}(${little})`;
       }
       return `io.${scalar.signed ? "readSigned" : "readUnsigned"}(${scalar.width}, ${little})`;
     }

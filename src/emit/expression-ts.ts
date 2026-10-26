@@ -9,6 +9,10 @@ interface Translated {
 }
 
 const intType: StaticType = { kind: "int" };
+
+function asNumber(translated: Translated): Translated {
+  return translated.type.kind === "int64" ? { code: `safeNumber(${translated.code})`, type: intType } : translated;
+}
 const boolType: StaticType = { kind: "bool" };
 
 function optionalSuffix(optional: boolean): string {
@@ -35,14 +39,14 @@ export class TypeScriptExpressions {
       case "string":
         return { code: JSON.stringify(node.value), type: { kind: "string" } };
       case "name":
-        return this.name(node.name, typeName);
+        return asNumber(this.name(node.name, typeName));
       case "member":
-        return this.member(this.node(node.object, typeName), node.property, node.object);
+        return asNumber(this.member(this.node(node.object, typeName), node.property, node.object));
       case "index": {
         const target = this.node(node.object, typeName);
         const index = this.node(node.index, typeName);
         if (target.type.kind === "array") {
-          return { code: `${target.code}[${index.code}]!`, type: target.type.element };
+          return asNumber({ code: `${target.code}[${index.code}]!`, type: target.type.element });
         }
         if (target.type.kind === "bytes") {
           return { code: `${target.code}[${index.code}]!`, type: intType };
