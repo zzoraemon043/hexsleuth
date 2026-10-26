@@ -76,12 +76,13 @@ export function emitVitestTest(layout: Layout, parserModule: string, outDir: str
   });
   return [
     'import { readFileSync } from "node:fs";',
+    'import { dirname, resolve } from "node:path";',
     'import { fileURLToPath } from "node:url";',
     'import { describe, expect, it } from "vitest";',
     `import { ${parse} } from ${JSON.stringify(parserModule)};`,
     "",
     "function readSample(path: string): Uint8Array {",
-    "  return new Uint8Array(readFileSync(fileURLToPath(new URL(path, import.meta.url))));",
+    "  return new Uint8Array(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), path)));",
     "}",
     "",
     `describe(${JSON.stringify(`${layout.id} parser`)}, () => {`,

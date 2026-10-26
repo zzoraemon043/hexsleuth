@@ -126,14 +126,14 @@ describe("emit", () => {
 
   it("keeps 64-bit integers above 2^53 exact", async () => {
     const outDir = join(emitRoot, "wide");
-    mkdirSync(outDir, { recursive: true });
+    mkdirSync(join(outDir, "odd names"), { recursive: true });
     const files = [0xf0, 0xf1, 0xf2].map((low) => {
       const bytes = new Uint8Array(26);
       const view = new DataView(bytes.buffer);
       view.setBigUint64(0, 0xffffffffffffff00n | BigInt(low), true);
       view.setBigInt64(8, -(2n ** 62n) - BigInt(low), false);
       view.setBigUint64(16, 2n, true);
-      const file = join(outDir, `sample-${low}.bin`);
+      const file = join(outDir, "odd names", `${["a#", "b%41", "c d"][low - 0xf0]}.bin`);
       writeFileSync(file, bytes);
       return file;
     });
