@@ -106,7 +106,8 @@ class Parser {
   }
 
   private expect(text: string): void {
-    if (this.next().text !== text) {
+    const token = this.next();
+    if (token.kind !== "symbol" || token.text !== text) {
       this.fail(`expected "${text}"`);
     }
   }
@@ -127,9 +128,9 @@ class Parser {
 
   private parseUnary(): ExpressionNode {
     const token = this.peek();
-    if (token.text === "-" || token.text === "not") {
+    if ((token.kind === "symbol" && token.text === "-") || (token.kind === "name" && token.text === "not")) {
       this.next();
-      return { kind: "unary", operator: token.text, operand: this.parseUnary() };
+      return { kind: "unary", operator: token.text as "-" | "not", operand: this.parseUnary() };
     }
     return this.parsePostfix(this.parsePrimary());
   }
@@ -148,7 +149,7 @@ class Parser {
       }
       return { kind: "name", name: token.text };
     }
-    if (token.text === "(") {
+    if (token.kind === "symbol" && token.text === "(") {
       const inner = this.parseBinary(0);
       this.expect(")");
       return inner;
@@ -160,14 +161,16 @@ class Parser {
   private parsePostfix(node: ExpressionNode): ExpressionNode {
     let current = node;
     for (;;) {
-      if (this.peek().text === ".") {
+      const token = this.peek();
+      const symbol = token.kind === "symbol" ? token.text : "";
+      if (symbol === ".") {
         this.next();
         const property = this.next();
         if (property.kind !== "name") {
           this.fail("expected a name after .");
         }
         current = { kind: "member", object: current, property: property.text };
-      } else if (this.peek().text === "[") {
+      } else if (symbol === "[") {
         this.next();
         const index = this.parseBinary(0);
         this.expect("]");

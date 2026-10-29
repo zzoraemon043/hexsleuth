@@ -30,6 +30,8 @@ describe("layout expressions", () => {
     expect(parseExpression("entries[0].data_offset")).toMatchObject({ kind: "member", property: "data_offset" });
     expect(parseExpression("0x10 - -4")).toMatchObject({ kind: "binary", operator: "-", right: { kind: "unary" } });
     expect(() => parseExpression("a +")).toThrow(/unexpected/);
+    expect(parseExpression('mode == "-"')).toMatchObject({ kind: "binary", right: { kind: "string", value: "-" } });
+    expect(parseExpression('"not" == mode')).toMatchObject({ kind: "binary", left: { kind: "string", value: "not" } });
     expect(() => parseExpression("a $ b")).toThrow(/unexpected character/);
   });
 });
