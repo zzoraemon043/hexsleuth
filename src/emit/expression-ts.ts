@@ -112,7 +112,7 @@ export class TypeScriptExpressions {
       case "!=":
         return { code: `(${left.code} !== ${right.code})`, type: boolType };
       case "/":
-        return { code: `Math.floor(${left.code} / ${right.code})`, type: intType };
+        return { code: `floorDiv(${left.code}, ${right.code})`, type: intType };
       case "%":
         return { code: `mod(${left.code}, ${right.code})`, type: intType };
       case "<":

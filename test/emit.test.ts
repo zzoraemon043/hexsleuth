@@ -157,6 +157,40 @@ describe("emit", () => {
     expect(readFileSync(output.files.test, "utf8")).toContain("expect(parsed.id).toBe(18446744073709551600n);");
   });
 
+  it("throws in emitted parsers on division and modulo by zero like the evaluator", async () => {
+    const outDir = resolve(".work/emit-zero");
+    rmSync(outDir, { recursive: true, force: true });
+    mkdirSync(outDir, { recursive: true });
+    try {
+      const files = [[2, 3, 1, 2, 3, 4, 5, 6], [4, 3, 1, 2, 3, 4, 5, 6]].map((bytes, index) => {
+        const file = join(outDir, `s${index}.bin`);
+        writeFileSync(file, Uint8Array.from(bytes));
+        return file;
+      });
+      const layout = {
+        id: "zero",
+        endian: "le",
+        seq: [
+          { id: "count", type: "u1" },
+          { id: "per", type: "u1" },
+          { id: "head", type: "bytes", size: "count / 2" },
+          { id: "tail", type: "bytes", size: "count % per" },
+        ],
+      };
+      const output = await runTool(emitTool, { files, layout, outDir });
+      expect(output.verification.parsed).toBe(2);
+      const parserModule = (await import(pathToFileURL(output.files.parser).href)) as { parseZero(bytes: Uint8Array): unknown };
+      expect(() => parserModule.parseZero(Uint8Array.from([2, 0, 1, 2]))).toThrow(/modulo by zero/);
+      const divide = { ...layout, seq: layout.seq.map((field) => (field.id === "head" ? { ...field, size: "count / per" } : field)) };
+      const divideOutDir = join(outDir, "divide");
+      const dividing = await runTool(emitTool, { files, layout: divide, outDir: divideOutDir });
+      const dividingModule = (await import(pathToFileURL(dividing.files.parser).href)) as { parseZero(bytes: Uint8Array): unknown };
+      expect(() => dividingModule.parseZero(Uint8Array.from([2, 0, 1, 2]))).toThrow(/division by zero/);
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
   it("emits Vitest tests that pass when run on their own", () => {
     const reportPath = join(emitRoot, "report.json");
     const result = spawnSync(process.execPath, [resolve("node_modules/vitest/vitest.mjs"), "run", "--root", emitRoot, "--reporter", "json", "--outputFile", reportPath], {

@@ -114,7 +114,17 @@ export const runtimeHelpers = {
   return new Uint8Array(inflateSync(bytes));
 }
 `,
+  floorDiv: `function floorDiv(value: number, divisor: number): number {
+  if (divisor === 0) {
+    throw new ParseError("division by zero");
+  }
+  return Math.floor(value / divisor);
+}
+`,
   mod: `function mod(value: number, divisor: number): number {
+  if (divisor === 0) {
+    throw new ParseError("modulo by zero");
+  }
   return ((value % divisor) + divisor) % divisor;
 }
 `,
