@@ -157,6 +157,31 @@ describe("emit", () => {
     expect(readFileSync(output.files.test, "utf8")).toContain("expect(parsed.id).toBe(18446744073709551600n);");
   });
 
+  it("emits 64-bit literals above 2^53 as bigint so comparisons match the evaluator", async () => {
+    const outDir = resolve(".work/emit-wide-compare");
+    rmSync(outDir, { recursive: true, force: true });
+    mkdirSync(outDir, { recursive: true });
+    try {
+      const file = join(outDir, "s.bin");
+      writeFileSync(file, Uint8Array.from([0, 255, 255, 255, 255, 255, 255, 255, 9]));
+      const layout = {
+        id: "cmp",
+        endian: "le",
+        seq: [
+          { id: "id", type: "u8" },
+          { id: "hit", type: "u1", if: "id == 0xffffffffffffff00 and id > 9007199254740993" },
+        ],
+      };
+      const output = await runTool(emitTool, { files: [file], layout, outDir });
+      expect(output.verification).toEqual({ samples: 1, parsed: 1, fullyRead: 1 });
+      expect(typeErrors([output.files.parser, output.files.test])).toEqual([]);
+      const parserModule = (await import(pathToFileURL(output.files.parser).href)) as { parseCmp(bytes: Uint8Array): { hit?: number } };
+      expect(parserModule.parseCmp(readFileSync(file)).hit).toBe(9);
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
   it("throws in emitted parsers on division and modulo by zero like the evaluator", async () => {
     const outDir = resolve(".work/emit-zero");
     rmSync(outDir, { recursive: true, force: true });

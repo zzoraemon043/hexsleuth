@@ -1,5 +1,5 @@
 export type ExpressionNode =
-  | { kind: "number"; value: number }
+  | { kind: "number"; value: number; exact?: string }
   | { kind: "boolean"; value: boolean }
   | { kind: "string"; value: string }
   | { kind: "name"; name: string }
@@ -130,7 +130,11 @@ class Parser {
     const token = this.peek();
     if ((token.kind === "symbol" && token.text === "-") || (token.kind === "name" && token.text === "not")) {
       this.next();
-      return { kind: "unary", operator: token.text as "-" | "not", operand: this.parseUnary() };
+      const operand = this.parseUnary();
+      if (token.text === "-" && operand.kind === "number" && operand.exact !== undefined) {
+        return { kind: "number", value: -operand.value, exact: `-${operand.exact}` };
+      }
+      return { kind: "unary", operator: token.text as "-" | "not", operand };
     }
     return this.parsePostfix(this.parsePrimary());
   }
@@ -138,7 +142,8 @@ class Parser {
   private parsePrimary(): ExpressionNode {
     const token = this.next();
     if (token.kind === "number") {
-      return { kind: "number", value: Number(token.text) };
+      const exact = BigInt(token.text);
+      return exact > BigInt(Number.MAX_SAFE_INTEGER) ? { kind: "number", value: Number(exact), exact: exact.toString() } : { kind: "number", value: Number(token.text) };
     }
     if (token.kind === "string") {
       return { kind: "string", value: token.text };

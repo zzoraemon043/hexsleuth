@@ -184,6 +184,25 @@ describe("verify_layout", () => {
     }
   });
 
+  it("compares 64-bit values above 2^53 exactly", async () => {
+    const conditions = ["id > 0", "id >= 0xffffffffffffff00", "id == 0xffffffffffffff00", "id != 18446744073709551615", "id > -9223372036854775808", "id > 9007199254740993"];
+    const layout = {
+      id: "w",
+      endian: "le",
+      seq: [{ id: "id", type: "u8" }, ...conditions.map((condition, index) => ({ id: `c${index}`, type: "u1", if: condition }))],
+    };
+    const dir = mkdtempSync(join(tmpdir(), "hexsleuth-"));
+    try {
+      const file = join(dir, "wide.bin");
+      writeFileSync(file, Buffer.from([0, 255, 255, 255, 255, 255, 255, 255, 1, 2, 3, 4, 5, 6]));
+      const output = await runTool(verifyLayoutTool, { files: [file], layout, includeTree: false });
+      expect(output.samples[0]?.error).toBeNull();
+      expect(output.samples[0]?.readBytes).toBe(14);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("requires a layout", async () => {
     await expect(runTool(verifyLayoutTool, { files: fixturePaths("png") })).rejects.toThrow(/layout or layoutFile/);
   });

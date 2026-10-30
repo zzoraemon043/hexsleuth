@@ -50,10 +50,31 @@ function asNumber(value: Value, context: string): number {
   throw new EvaluationError(`${context} needs a number, got ${describeValue(value)}`);
 }
 
+const wideInteger = /^-?\d+$/;
+
+function wideOf(value: Value): bigint | undefined {
+  if (typeof value === "string" && wideInteger.test(value)) {
+    return BigInt(value);
+  }
+  return typeof value === "number" && Number.isInteger(value) ? BigInt(value) : undefined;
+}
+
 function binary(operator: string, left: Value, right: Value): Value {
   if (operator === "==" || operator === "!=") {
     const equal = left === right;
     return operator === "==" ? equal : !equal;
+  }
+  if (typeof left === "string" || typeof right === "string") {
+    const a = wideOf(left);
+    const b = wideOf(right);
+    if (a !== undefined && b !== undefined) {
+      switch (operator) {
+        case "<": return a < b;
+        case "<=": return a <= b;
+        case ">": return a > b;
+        case ">=": return a >= b;
+      }
+    }
   }
   const a = asNumber(left, operator);
   const b = asNumber(right, operator);
@@ -81,6 +102,7 @@ function binary(operator: string, left: Value, right: Value): Value {
 function evaluateNode(node: ExpressionNode, scope: ParsedObject, resolve: NameResolver): Value {
   switch (node.kind) {
     case "number":
+      return node.exact ?? node.value;
     case "boolean":
     case "string":
       return node.value;

@@ -6,12 +6,13 @@ import type { LayoutTypes, StaticType } from "./static-types.js";
 interface Translated {
   code: string;
   type: StaticType;
+  raw?: Translated;
 }
 
 const intType: StaticType = { kind: "int" };
 
 function asNumber(translated: Translated): Translated {
-  return translated.type.kind === "int64" ? { code: `safeNumber(${translated.code})`, type: intType } : translated;
+  return translated.type.kind === "int64" ? { code: `safeNumber(${translated.code})`, type: intType, raw: translated } : translated;
 }
 const boolType: StaticType = { kind: "bool" };
 
@@ -33,7 +34,7 @@ export class TypeScriptExpressions {
   private node(node: ExpressionNode, typeName: string): Translated {
     switch (node.kind) {
       case "number":
-        return { code: String(node.value), type: intType };
+        return { code: node.exact === undefined ? String(node.value) : `${node.exact}n`, type: intType };
       case "boolean":
         return { code: String(node.value), type: boolType };
       case "string":
@@ -101,7 +102,10 @@ export class TypeScriptExpressions {
     throw new EmitError(`unsupported member .${property}`);
   }
 
-  private binary(operator: string, left: Translated, right: Translated): Translated {
+  private binary(operator: string, wrappedLeft: Translated, wrappedRight: Translated): Translated {
+    const comparison = ["==", "!=", "<", "<=", ">", ">="].includes(operator);
+    const left = comparison ? (wrappedLeft.raw ?? wrappedLeft) : wrappedLeft;
+    const right = comparison ? (wrappedRight.raw ?? wrappedRight) : wrappedRight;
     switch (operator) {
       case "and":
         return { code: `(${left.code} && ${right.code})`, type: boolType };
