@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseExpression } from "../src/layout/expression.js";
 import { LayoutError, parseLayout } from "../src/layout/load.js";
@@ -157,6 +160,28 @@ describe("verify_layout", () => {
     };
     const output = await runTool(verifyLayoutTool, { files: fixturePaths("png").slice(0, 1), layout, includeTree: false });
     expect(output.samples[0]?.error).toEqual({ path: "z.e[0]", offset: 0, message: "repeat item consumed 0 bytes" });
+  });
+
+  it("skips the right side of and/or when the left side decides", async () => {
+    const layout = {
+      id: "s",
+      endian: "le",
+      seq: [
+        { id: "n", type: "u1" },
+        { id: "a", type: "u1", if: "n != 0 and 10 / n > 3" },
+        { id: "b", type: "u1", if: "n == 0 or 10 / n > 3" },
+      ],
+    };
+    const dir = mkdtempSync(join(tmpdir(), "hexsleuth-"));
+    try {
+      const file = join(dir, "zero.bin");
+      writeFileSync(file, Buffer.from([0, 7]));
+      const output = await runTool(verifyLayoutTool, { files: [file], layout, includeTree: false });
+      expect(output.samples[0]?.error).toBeNull();
+      expect(output.samples[0]?.readBytes).toBe(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("requires a layout", async () => {

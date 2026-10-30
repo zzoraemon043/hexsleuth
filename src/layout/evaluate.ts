@@ -55,10 +55,6 @@ function binary(operator: string, left: Value, right: Value): Value {
     const equal = left === right;
     return operator === "==" ? equal : !equal;
   }
-  if (operator === "and" || operator === "or") {
-    const leftTruth = Boolean(left);
-    return operator === "and" ? leftTruth && Boolean(right) : leftTruth || Boolean(right);
-  }
   const a = asNumber(left, operator);
   const b = asNumber(right, operator);
   switch (operator) {
@@ -108,8 +104,14 @@ function evaluateNode(node: ExpressionNode, scope: ParsedObject, resolve: NameRe
       const operand = evaluateNode(node.operand, scope, resolve);
       return node.operator === "not" ? !operand : -asNumber(operand, "negation");
     }
-    case "binary":
+    case "binary": {
+      if (node.operator === "and" || node.operator === "or") {
+        const isOr = node.operator === "or";
+        const left = Boolean(evaluateNode(node.left, scope, resolve));
+        return left === isOr ? isOr : Boolean(evaluateNode(node.right, scope, resolve));
+      }
       return binary(node.operator, evaluateNode(node.left, scope, resolve), evaluateNode(node.right, scope, resolve));
+    }
   }
 }
 
