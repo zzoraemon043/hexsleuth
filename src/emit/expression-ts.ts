@@ -47,10 +47,10 @@ export class TypeScriptExpressions {
         const target = this.node(node.object, typeName);
         const index = this.node(node.index, typeName);
         if (target.type.kind === "array") {
-          return asNumber({ code: `${target.code}[${index.code}]!`, type: target.type.element });
+          return asNumber({ code: `indexAt(${target.code}, ${index.code})`, type: target.type.element });
         }
         if (target.type.kind === "bytes") {
-          return { code: `${target.code}[${index.code}]!`, type: intType };
+          return { code: `indexAt(${target.code}, ${index.code})`, type: intType };
         }
         throw new EmitError("only arrays and byte arrays can be indexed");
       }
@@ -108,9 +108,9 @@ export class TypeScriptExpressions {
     const right = comparison ? (wrappedRight.raw ?? wrappedRight) : wrappedRight;
     switch (operator) {
       case "and":
-        return { code: `(${left.code} && ${right.code})`, type: boolType };
+        return { code: `(Boolean(${left.code}) && Boolean(${right.code}))`, type: boolType };
       case "or":
-        return { code: `(${left.code} || ${right.code})`, type: boolType };
+        return { code: `(Boolean(${left.code}) || Boolean(${right.code}))`, type: boolType };
       case "==":
         return { code: `(${left.code} === ${right.code})`, type: boolType };
       case "!=":

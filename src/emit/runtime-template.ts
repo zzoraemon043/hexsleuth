@@ -121,6 +121,14 @@ export const runtimeHelpers = {
   return Math.floor(value / divisor);
 }
 `,
+  indexAt: `function indexAt<T>(items: ArrayLike<T>, index: number): T {
+  const item = items[index];
+  if (item === undefined) {
+    throw new ParseError(\`index \${index} is outside an array of \${items.length}\`);
+  }
+  return item;
+}
+`,
   mod: `function mod(value: number, divisor: number): number {
   if (divisor === 0) {
     throw new ParseError("modulo by zero");

@@ -216,6 +216,54 @@ describe("emit", () => {
     }
   });
 
+  it("makes emitted and/or give booleans and emitted indexing throw outside the array like the evaluator", async () => {
+    const outDir = resolve(".work/emit-bool-index");
+    rmSync(outDir, { recursive: true, force: true });
+    mkdirSync(outDir, { recursive: true });
+    try {
+      const files = [[1, 1, 9, 9, 9], [1, 1, 8, 8, 8]].map((bytes, index) => {
+        const file = join(outDir, `s${index}.bin`);
+        writeFileSync(file, Uint8Array.from(bytes));
+        return file;
+      });
+      const layout = {
+        id: "boolidx",
+        endian: "le",
+        seq: [
+          { id: "a", type: "u1" },
+          { id: "b", type: "u1" },
+          { id: "head", type: "bytes", size: "(a and b) * 1" },
+          { id: "tail", type: "bytes", sizeEos: true },
+        ],
+      };
+      const output = await runTool(emitTool, { files, layout, outDir });
+      expect(output.verification.parsed).toBe(2);
+      const parserModule = (await import(pathToFileURL(output.files.parser).href)) as { parseBoolidx(bytes: Uint8Array): { head: Uint8Array } };
+      expect(parserModule.parseBoolidx(Uint8Array.from([3, 5, 9, 9, 9])).head.length).toBe(1);
+      const indexDir = join(outDir, "index");
+      const indexFiles = [[1, 2, 1, 9], [0, 1, 0, 9]].map((bytes, index) => {
+        const file = join(outDir, `i${index}.bin`);
+        writeFileSync(file, Uint8Array.from(bytes));
+        return file;
+      });
+      const indexLayout = {
+        id: "boolidx",
+        endian: "le",
+        seq: [
+          { id: "count", type: "u1" },
+          { id: "data", type: "bytes", size: 2 },
+          { id: "tail", type: "bytes", size: "data[count]" },
+        ],
+      };
+      const indexed = await runTool(emitTool, { files: indexFiles, layout: indexLayout, outDir: indexDir });
+      expect(indexed.verification.parsed).toBe(2);
+      const indexModule = (await import(pathToFileURL(indexed.files.parser).href)) as { parseBoolidx(bytes: Uint8Array): unknown };
+      expect(() => indexModule.parseBoolidx(Uint8Array.from([5, 1, 2, 9]))).toThrow(/outside an array/);
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
   it("emits Vitest tests that pass when run on their own", () => {
     const reportPath = join(emitRoot, "report.json");
     const result = spawnSync(process.execPath, [resolve("node_modules/vitest/vitest.mjs"), "run", "--root", emitRoot, "--reporter", "json", "--outputFile", reportPath], {
