@@ -74,6 +74,29 @@ describe("layout validation", () => {
     }
   });
 
+  it("rejects size, sizeEos and process on scalar and strz fields", () => {
+    const layout = {
+      id: "ignored",
+      endian: "le",
+      seq: [
+        { id: "a", type: "u2", size: 4 },
+        { id: "b", type: "strz", encoding: "ascii", size: 2 },
+        { id: "c", type: "f4", sizeEos: true },
+        { id: "d", type: "u1", process: "zlib" },
+      ],
+    };
+    try {
+      parseLayout(layout);
+      expect.unreachable();
+    } catch (error) {
+      const problems = (error as LayoutError).problems;
+      expect(problems).toContain("ignored.a: size is not allowed on u2");
+      expect(problems).toContain("ignored.b: size is not allowed on strz");
+      expect(problems).toContain("ignored.c: sizeEos is not allowed on f4");
+      expect(problems).toContain("ignored.d: process is not allowed on u1");
+    }
+  });
+
   it("rejects unknown keys and bad identifiers", () => {
     expect(() => parseLayout({ id: "Bad-Id", endian: "le", seq: [] })).toThrow(LayoutError);
     expect(() => parseLayout({ id: "ok", endian: "le", seq: [{ id: "x", type: "u1", sise: 3 }] })).toThrow(/sise|Unrecognized/);

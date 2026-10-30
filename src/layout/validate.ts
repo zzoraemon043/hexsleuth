@@ -1,6 +1,6 @@
 import { parseExpression } from "./expression.js";
 import { instanceFields, rootType, type Expression, type Layout, type NamedField, type TypeSpec } from "./schema.js";
-import { isBuiltinType, textDecoderLabel } from "./types.js";
+import { isBuiltinType, parseScalarType, textDecoderLabel } from "./types.js";
 
 function expressionErrors(where: string, expression: Expression | undefined): string[] {
   if (expression === undefined) {
@@ -37,6 +37,13 @@ function fieldErrors(where: string, field: NamedField, knownTypes: Set<string>):
   }
   if (field.type === "str" || field.type === "strz") {
     errors.push(...encodingErrors(where, field.encoding));
+  }
+  if (parseScalarType(field.type) !== undefined || field.type === "strz") {
+    for (const [label, present] of [["size", field.size !== undefined], ["sizeEos", field.sizeEos !== undefined], ["process", field.process !== undefined]] as const) {
+      if (present) {
+        errors.push(`${where}: ${label} is not allowed on ${field.type}`);
+      }
+    }
   }
   if (field.contents !== undefined && field.type !== "bytes") {
     errors.push(`${where}: contents is only allowed on bytes`);
