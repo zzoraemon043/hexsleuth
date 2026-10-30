@@ -13,6 +13,7 @@ export interface ParseOutcome {
 }
 
 const previewLength = 32;
+const maxEmptyRepeatItems = 65536;
 const absentInstance = Symbol("absent");
 
 export class LayoutInterpreter {
@@ -158,6 +159,7 @@ export class LayoutInterpreter {
     const node: TreeNode = { name: field.id, type: `${field.type}[]`, offset: stream.absolute(), size: 0, items: [] };
     attach(node);
     const values: Value[] = [];
+    let emptyItems = 0;
     try {
       const count =
         field.repeat === "expr"
@@ -168,6 +170,10 @@ export class LayoutInterpreter {
         values.push(this.readOne(object, { ...field, id: `${field.id}[${index}]` }, stream, `${path}[${index}]`, (item) => node.items?.push(item)));
         if (field.repeat === "eos" && stream.pos === itemStart) {
           throw new ParseError(`${path}[${index}]`, stream.absolute(itemStart), "repeat item consumed 0 bytes");
+        }
+        emptyItems = stream.pos === itemStart ? emptyItems + 1 : 0;
+        if (emptyItems > maxEmptyRepeatItems) {
+          throw new ParseError(`${path}[${index}]`, stream.absolute(itemStart), `repeat of ${count} items that consume 0 bytes`);
         }
       }
     } finally {

@@ -162,6 +162,45 @@ describe("verify_layout", () => {
     expect(output.samples[0]?.error).toEqual({ path: "z.e[0]", offset: 0, message: "repeat item consumed 0 bytes" });
   });
 
+  it("stops a repeat expr of items that consume no bytes when the count is huge", async () => {
+    const layout = {
+      id: "z",
+      endian: "le",
+      seq: [
+        { id: "n", type: "u4" },
+        { id: "e", type: "empty", repeat: "expr", repeatExpr: "n" },
+      ],
+      types: { empty: { seq: [] } },
+    };
+    const dir = mkdtempSync(join(tmpdir(), "hexsleuth-"));
+    try {
+      const file = join(dir, "huge.bin");
+      writeFileSync(file, Uint8Array.of(0xff, 0xff, 0xff, 0xff));
+      const output = await runTool(verifyLayoutTool, { files: [file], layout, includeTree: false });
+      expect(output.samples[0]?.error?.message).toBe("repeat of 4294967295 items that consume 0 bytes");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects prototype property names used as operators", async () => {
+    const layout = {
+      id: "p",
+      endian: "le",
+      seq: [
+        { id: "n", type: "u1" },
+        { id: "x", type: "u1", if: "n constructor 5" },
+      ],
+    };
+    try {
+      parseLayout(layout);
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toBeInstanceOf(LayoutError);
+      expect((error as LayoutError).problems.some((problem) => problem.startsWith("p.x.if:"))).toBe(true);
+    }
+  });
+
   it("skips the right side of and/or when the left side decides", async () => {
     const layout = {
       id: "s",

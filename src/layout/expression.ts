@@ -116,7 +116,7 @@ class Parser {
     let left = this.parseUnary();
     for (;;) {
       const operator = this.peek().text;
-      const level = precedence[operator];
+      const level = Object.hasOwn(precedence, operator) ? precedence[operator] : undefined;
       if (level === undefined || level <= minimum || this.peek().kind !== "symbol" && this.peek().kind !== "name") {
         return left;
       }
