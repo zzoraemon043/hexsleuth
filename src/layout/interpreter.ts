@@ -1,4 +1,5 @@
 import { inflateSync } from "node:zlib";
+import { maxOutputLength } from "../core/compression/types.js";
 import { toHex } from "../core/hex.js";
 import { EvaluationError, evaluate, evaluateNumber } from "./evaluate.js";
 import { instanceFields, rootType, type Layout, type NamedField, type TypeSpec } from "./schema.js";
@@ -251,7 +252,7 @@ export class LayoutInterpreter {
 
   private inflate(raw: Uint8Array, path: string, stream: Stream): Uint8Array {
     try {
-      return new Uint8Array(inflateSync(raw));
+      return new Uint8Array(inflateSync(raw, { maxOutputLength }));
     } catch (error) {
       throw new ParseError(path, stream.absolute(stream.pos - raw.length), `zlib inflate failed: ${(error as Error).message}`);
     }

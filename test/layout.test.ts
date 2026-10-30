@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { parseExpression } from "../src/layout/expression.js";
 import { LayoutError, parseLayout } from "../src/layout/load.js";
@@ -237,6 +238,24 @@ describe("verify_layout", () => {
       const output = await runTool(verifyLayoutTool, { files: [file], layout, includeTree: false });
       expect(output.samples[0]?.error).toBeNull();
       expect(output.samples[0]?.readBytes).toBe(14);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to inflate a zlib stream past the output limit", async () => {
+    const layout = {
+      id: "bomb",
+      endian: "le",
+      seq: [{ id: "data", type: "bytes", size: "_io.size", process: "zlib" }],
+    };
+    const dir = mkdtempSync(join(tmpdir(), "hexsleuth-"));
+    try {
+      const file = join(dir, "bomb.bin");
+      writeFileSync(file, deflateSync(Buffer.alloc(80 * 1024 * 1024)));
+      const output = await runTool(verifyLayoutTool, { files: [file], layout, includeTree: false });
+      expect(output.samples[0]?.ok).toBe(false);
+      expect(output.samples[0]?.error?.message).toMatch(/zlib inflate failed/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
