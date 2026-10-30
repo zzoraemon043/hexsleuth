@@ -71,9 +71,13 @@ class ParserWriter {
     return this.expressions.translate(value, typeName);
   }
 
+  private integer(value: string | number, typeName: string): string {
+    return `wholeNumber(${this.expression(value, typeName)})`;
+  }
+
   private sizeCode(field: NamedField, typeName: string): string | undefined {
     if (field.size !== undefined) {
-      return this.expression(field.size, typeName);
+      return this.integer(field.size, typeName);
     }
     return undefined;
   }
@@ -126,7 +130,7 @@ class ParserWriter {
     if (field.repeat === "expr") {
       return [
         `${indent}self.${field.id} = [];`,
-        `${indent}for (let index = 0, count = ${this.expression(field.repeatExpr ?? 0, typeName)}; index < count; index += 1) {`,
+        `${indent}for (let index = 0, count = ${this.integer(field.repeatExpr ?? 0, typeName)}; index < count; index += 1) {`,
         `${indent}  self.${field.id}.push(${item});`,
         `${indent}}`,
       ];
@@ -181,7 +185,7 @@ class ParserWriter {
       lines.push(
         opening,
         "    const saved = io.pos;",
-        `    io.seek(${this.expression(instance.pos ?? 0, name)});`,
+        `    io.seek(${this.integer(instance.pos ?? 0, name)});`,
         ...this.assignment(instance, name, "    "),
         "    io.seek(saved);",
         "  }",

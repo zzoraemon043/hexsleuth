@@ -182,6 +182,32 @@ describe("emit", () => {
     }
   });
 
+  it("throws in emitted parsers when size, repeat-expr or pos is not an integer like the evaluator", async () => {
+    const outDir = resolve(".work/emit-fraction");
+    rmSync(outDir, { recursive: true, force: true });
+    mkdirSync(outDir, { recursive: true });
+    try {
+      const file = join(outDir, "s.bin");
+      writeFileSync(file, Uint8Array.from([0, 0, 0, 64, 1, 2, 3]));
+      const layout = {
+        id: "frac",
+        endian: "le",
+        seq: [
+          { id: "scale", type: "f4" },
+          { id: "body", type: "bytes", size: "scale" },
+          { id: "tail", type: "u1" },
+        ],
+      };
+      const output = await runTool(emitTool, { files: [file], layout, outDir });
+      expect(output.verification).toEqual({ samples: 1, parsed: 1, fullyRead: 1 });
+      const parserModule = (await import(pathToFileURL(output.files.parser).href)) as { parseFrac(bytes: Uint8Array): { tail: number } };
+      expect(parserModule.parseFrac(readFileSync(file)).tail).toBe(3);
+      expect(() => parserModule.parseFrac(Uint8Array.from([0, 0, 192, 63, 1, 2, 3, 4]))).toThrow(/expected an integer, got 1.5/);
+    } finally {
+      rmSync(outDir, { recursive: true, force: true });
+    }
+  });
+
   it("throws in emitted parsers on division and modulo by zero like the evaluator", async () => {
     const outDir = resolve(".work/emit-zero");
     rmSync(outDir, { recursive: true, force: true });

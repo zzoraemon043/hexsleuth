@@ -121,6 +121,13 @@ export const runtimeHelpers = {
   return Math.floor(value / divisor);
 }
 `,
+  wholeNumber: `function wholeNumber(value: number): number {
+  if (!Number.isInteger(value)) {
+    throw new ParseError(\`expected an integer, got \${value}\`);
+  }
+  return value;
+}
+`,
   indexAt: `function indexAt<T>(items: ArrayLike<T>, index: number): T {
   const item = items[index];
   if (item === undefined) {
