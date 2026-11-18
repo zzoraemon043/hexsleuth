@@ -1,4 +1,4 @@
-import { localNames, parseExpression, type ExpressionNode } from "../layout/expression.js";
+import { expressionNames, parseExpression, type ExpressionNode } from "../layout/expression.js";
 import type { Expression } from "../layout/schema.js";
 import { EmitError } from "./naming.js";
 import type { LayoutTypes, StaticType } from "./static-types.js";
@@ -27,8 +27,8 @@ export class TypeScriptExpressions {
     return this.node(parseExpression(expression), typeName).code;
   }
 
-  referencedLocals(expression: Expression | undefined): string[] {
-    return expression === undefined ? [] : localNames(parseExpression(expression));
+  referencedNames(expression: Expression | undefined, qualifier?: "_root"): string[] {
+    return expression === undefined ? [] : expressionNames(parseExpression(expression), qualifier);
   }
 
   private node(node: ExpressionNode, typeName: string): Translated {

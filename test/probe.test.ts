@@ -1,3 +1,5 @@
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runTool } from "../src/tools/definition.js";
 import { probeTool } from "../src/tools/probe.js";
@@ -27,6 +29,22 @@ describe("probe", () => {
     expect(output.strings).toContainEqual({ offset: 8, length: 8, text: "WAVEfmt " });
     expect(output.strings).toContainEqual({ offset: 56, length: 4, text: "tone" });
     expect(output.entropy.highEntropyRegions).toEqual([]);
+  });
+
+  it("summarizes more entropy blocks than can be passed as function arguments", async () => {
+    const directory = resolve(".work/probe-large");
+    mkdirSync(directory, { recursive: true });
+    const file = join(directory, "sample.bin");
+    const bytes = Buffer.alloc(4 * 1024 * 1024 + 2);
+    bytes[bytes.length - 1] = 1;
+    writeFileSync(file, bytes);
+    try {
+      const output = await runTool(probeTool, { file, blockSize: 16, maxBlocks: 1 });
+      expect(output.entropy).toMatchObject({ min: 0, max: 1, mean: 0, blocksTruncated: true });
+      expect(output.entropy.blocks).toEqual([{ offset: 0, length: 16, entropy: 0 }]);
+    } finally {
+      rmSync(file);
+    }
   });
 
   it("classifies zlib data as compressed and random data as possibly-encrypted", async () => {

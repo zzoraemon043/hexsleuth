@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { z } from "zod";
@@ -76,7 +77,8 @@ function describe(stream: DecodedStream, outputPath: string | undefined): Detect
 function writeDecoded(workDir: string, file: string, stream: DecodedStream): string {
   const directory = resolve(workDir);
   mkdirSync(directory, { recursive: true });
-  const path = join(directory, `${basename(file)}.${stream.offset}.${stream.method}.bin`);
+  const sourceId = createHash("sha256").update(resolve(file)).digest("hex").slice(0, 16);
+  const path = join(directory, `${basename(file)}.${sourceId}.${stream.offset}.${stream.method}.bin`);
   writeFileSync(path, stream.output);
   return path;
 }
@@ -102,7 +104,7 @@ export function detectCompression(input: z.infer<z.ZodObject<typeof detectCompre
   const entropy = roundTo(shannonEntropy(considered.subarray(range.offset, range.offset + entropySampleLength)), 3);
   const detected: DetectedStream[] = [];
   for (const method of tried) {
-    const stream = tryDecode(considered, range.offset, method);
+    const stream = tryDecode(considered, range.offset, method, { reportOutputLimit: true });
     if (!stream || (method === "deflate-raw" && input.method === "auto" && !plausibleRawDeflate(stream))) {
       continue;
     }

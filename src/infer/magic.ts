@@ -13,24 +13,25 @@ export function commonPrefixLength(samples: Sample[]): number {
   return length;
 }
 
-export function magicLength(samples: Sample[]): number {
+function sharedMagic(samples: Sample[]) {
   const first = samples[0] as Sample;
   const common = commonPrefixLength(samples);
-  const known = findMagic(first.bytes, 0).find((candidate) => candidate.offset === 0);
-  if (known) {
-    return Math.min(common, known.bytes.split(" ").length);
-  }
-  return Math.min(common, 4);
+  const prefix = first.bytes.subarray(0, common);
+  const known = findMagic(prefix, 0).find((candidate) => candidate.offset === 0 && isKnownSignature(candidate));
+  const length = known ? known.bytes.split(" ").length : Math.min(common, 4);
+  return { bytes: prefix.subarray(0, length), known };
+}
+
+export function magicLength(samples: Sample[]): number {
+  return sharedMagic(samples).bytes.length;
 }
 
 export function findMagicFinding(samples: Sample[]): Finding | undefined {
-  const length = magicLength(samples);
+  const { bytes, known } = sharedMagic(samples);
+  const length = bytes.length;
   if (length < 2) {
     return undefined;
   }
-  const first = samples[0] as Sample;
-  const bytes = first.bytes.subarray(0, length);
-  const known = findMagic(first.bytes, 0).find((candidate) => candidate.offset === 0 && isKnownSignature(candidate));
   const raw = 0.6 + (length >= 4 ? 0.2 : 0) + (known ? 0.15 : 0);
   return {
     id: "magic@start:0",

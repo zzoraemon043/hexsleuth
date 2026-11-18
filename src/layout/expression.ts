@@ -202,18 +202,20 @@ export function parseExpression(source: string | number): ExpressionNode {
   return node;
 }
 
-export function localNames(node: ExpressionNode): string[] {
+export function expressionNames(node: ExpressionNode, qualifier?: "_root"): string[] {
   switch (node.kind) {
     case "name":
-      return node.name.startsWith("_") ? [] : [node.name];
+      return qualifier === undefined && !node.name.startsWith("_") ? [node.name] : [];
     case "member":
-      return localNames(node.object);
+      return qualifier !== undefined && node.object.kind === "name" && node.object.name === qualifier
+        ? [node.property]
+        : expressionNames(node.object, qualifier);
     case "index":
-      return [...localNames(node.object), ...localNames(node.index)];
+      return [...expressionNames(node.object, qualifier), ...expressionNames(node.index, qualifier)];
     case "unary":
-      return localNames(node.operand);
+      return expressionNames(node.operand, qualifier);
     case "binary":
-      return [...localNames(node.left), ...localNames(node.right)];
+      return [...expressionNames(node.left, qualifier), ...expressionNames(node.right, qualifier)];
     default:
       return [];
   }

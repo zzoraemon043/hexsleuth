@@ -24,7 +24,7 @@ function typeScriptType(type: StaticType): string {
     case "user":
       return pascalCase(type.name);
     case "array":
-      return `${typeScriptType(type.element)}[]`;
+      return `Array<${typeScriptType(type.element)}>`;
   }
 }
 
@@ -108,12 +108,17 @@ class ParserWriter {
     if (field.type === "strz") {
       return `decode(io.readBytesTerminatedByZero(), ${JSON.stringify(field.encoding ?? "ASCII")})`;
     }
-    if (field.type === "bytes" && field.contents !== undefined) {
-      return `io.expectContents([${Array.from(contentsBytes(field.contents)).join(", ")}], ${JSON.stringify(`${typeName}.${field.id}`)})`;
-    }
     if (field.type === "bytes" || field.type === "str") {
+      const expected = field.contents === undefined ? undefined : Array.from(contentsBytes(field.contents));
+      const contents = expected === undefined ? undefined : `[${expected.join(", ")}], ${JSON.stringify(`${typeName}.${field.id}`)}`;
+      if (contents !== undefined && field.size === undefined && !field.sizeEos) {
+        return `io.expectContents(${contents})`;
+      }
       const raw = this.rawBytesCode(field, typeName);
       const bytes = field.process === "zlib" ? `inflate(${raw})` : raw;
+      if (contents !== undefined) {
+        return `io.expectContents(${contents}, ${bytes})`;
+      }
       return field.type === "str" ? `decode(${bytes}, ${JSON.stringify(field.encoding ?? "ASCII")})` : bytes;
     }
     const parse = readFunctionName(field.type);
@@ -136,7 +141,17 @@ class ParserWriter {
       ];
     }
     if (field.repeat === "eos") {
-      return [`${indent}self.${field.id} = [];`, `${indent}while (!io.eof) {`, `${indent}  self.${field.id}.push(${item});`, `${indent}}`];
+      const message = JSON.stringify(`${typeName}.${field.id}: repeat item consumed 0 bytes`);
+      return [
+        `${indent}self.${field.id} = [];`,
+        `${indent}while (!io.eof) {`,
+        `${indent}  const itemStart = io.pos;`,
+        `${indent}  self.${field.id}.push(${item});`,
+        `${indent}  if (io.pos === itemStart) {`,
+        `${indent}    throw new ParseError(${message});`,
+        `${indent}  }`,
+        `${indent}}`,
+      ];
     }
     return [`${indent}self.${field.id} = ${item};`];
   }
@@ -148,11 +163,17 @@ class ParserWriter {
     return [`  if (${this.expression(field.if, typeName)}) {`, ...body("    "), "  }"];
   }
 
-  private checkSeqReferences(name: string, spec: TypeSpec): void {
+  private checkInstanceReferences(name: string, spec: TypeSpec): void {
     const instanceNames = new Set(Object.keys(spec.instances ?? {}));
-    for (const field of spec.seq) {
-      for (const expression of [field.size, field.repeatExpr, field.if]) {
-        const used = this.expressions.referencedLocals(expression).filter((local) => instanceNames.has(local));
+    const rootInstances = new Set(Object.keys(this.layout.instances ?? {}));
+    for (const field of this.types.fieldsOf(spec)) {
+      const isInstance = field.pos !== undefined;
+      for (const expression of [field.pos, field.size, field.repeatExpr, field.if]) {
+        const used = isInstance ? [] : this.expressions.referencedNames(expression).filter((local) => instanceNames.has(local));
+        if (!isInstance || name !== this.layout.id) {
+          const rootReferences = this.expressions.referencedNames(expression, "_root").filter((member) => rootInstances.has(member));
+          used.push(...rootReferences.map((member) => `_root.${member}`));
+        }
         if (used.length > 0) {
           throw new EmitError(`${name}.${field.id} refers to instance ${used.join(", ")}; the emitted parser reads instances after the sequence`);
         }
@@ -161,7 +182,7 @@ class ParserWriter {
   }
 
   private parseFunction(name: string, spec: TypeSpec): string {
-    this.checkSeqReferences(name, spec);
+    this.checkInstanceReferences(name, spec);
     const isRoot = name === this.layout.id;
     const parents = this.types.parentTypes(name).map((parent) => pascalCase(parent));
     const parentType = parents.length > 0 ? parents.join(" | ") : "null";
@@ -180,7 +201,11 @@ class ParserWriter {
     for (const field of spec.seq) {
       lines.push(...this.guarded(field, name, (indent) => this.assignment(field, name, indent)));
     }
-    for (const instance of orderInstances(spec, (expression) => this.expressions.referencedLocals(expression))) {
+    const instances = orderInstances(spec, (expression) => [
+      ...this.expressions.referencedNames(expression),
+      ...(isRoot ? this.expressions.referencedNames(expression, "_root") : []),
+    ]);
+    for (const instance of instances) {
       const opening = instance.if === undefined ? "  {" : `  if (${this.expression(instance.if, name)}) {`;
       lines.push(
         opening,

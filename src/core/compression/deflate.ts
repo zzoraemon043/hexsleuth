@@ -6,6 +6,16 @@ interface InflateResult {
   engine: { bytesWritten: number };
 }
 
+export class ZlibOutputLimitError extends Error {
+  constructor() {
+    super(`zlib decompressed output exceeds the ${maxOutputLength / (1024 * 1024)} MiB limit`);
+  }
+}
+
+function zlibErrorCode(error: unknown): unknown {
+  return error instanceof Error && "code" in error ? error.code : undefined;
+}
+
 function inflateWithInfo(input: Uint8Array, raw: boolean): InflateResult {
   const options = { info: true, maxOutputLength } as const;
   const result: unknown = raw ? inflateRawSync(input, options) : inflateSync(input, options);
@@ -19,7 +29,10 @@ export function isZlibHeader(first: number, second: number): boolean {
 function inflatesAsPrefix(input: Uint8Array): Buffer | undefined {
   try {
     return inflateSync(input, { finishFlush: constants.Z_SYNC_FLUSH, maxOutputLength });
-  } catch {
+  } catch (error) {
+    if (zlibErrorCode(error) === "ERR_BUFFER_TOO_LARGE") {
+      throw new ZlibOutputLimitError();
+    }
     return undefined;
   }
 }
@@ -66,8 +79,15 @@ export function decodeZlib(bytes: Uint8Array, offset: number): DecodedStream | u
       complete: true,
       evidence: `zlib header ${first.toString(16)} ${second.toString(16)} passes the FCHECK test and the stream inflates with a valid Adler-32 trailer`,
     };
-  } catch {
-    return longestValidZlibPrefix(bytes, offset);
+  } catch (error) {
+    const code = zlibErrorCode(error);
+    if (code === "ERR_BUFFER_TOO_LARGE") {
+      throw new ZlibOutputLimitError();
+    }
+    if (code === "Z_DATA_ERROR" || code === "Z_BUF_ERROR") {
+      return longestValidZlibPrefix(bytes, offset);
+    }
+    throw error;
   }
 }
 

@@ -1,11 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { linkSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { deflateSync } from "node:zlib";
 import ts from "typescript";
 import { parse as parseYaml } from "yaml";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { emitVitestTest, expectationsFor } from "../src/emit/vitest-test.js";
 import { parseLayout } from "../src/layout/load.js";
 import { verifySample } from "../src/layout/verify.js";
@@ -61,6 +62,21 @@ function typeErrors(files: string[]): string[] {
     skipLibCheck: true,
   });
   return ts.getPreEmitDiagnostics(program).map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"));
+}
+
+async function compileKaitai(file: string): Promise<(bytes: Uint8Array) => unknown> {
+  const compiler = requireFromRepository("kaitai-struct-compiler") as { compile(language: string, ksy: unknown, importer: null, debug: boolean): Promise<Record<string, string>> };
+  const KaitaiStream = requireFromRepository("kaitai-struct/KaitaiStream") as new (buffer: ArrayBuffer) => unknown;
+  const ksy: unknown = parseYaml(readFileSync(file, "utf8"));
+  const compiled = await compiler.compile("javascript", ksy, null, false);
+  const [source] = Object.values(compiled);
+  const moduleExports: Record<string, new (stream: unknown) => unknown> = {};
+  new Function("exports", "require", source ?? "")(moduleExports, requireFromRepository);
+  const [Parser] = Object.values(moduleExports);
+  if (!Parser) {
+    throw new Error(`no parser compiled from ${file}`);
+  }
+  return (bytes) => new Parser(new KaitaiStream(Uint8Array.from(bytes).buffer));
 }
 
 function evaluateAccessor(parsed: unknown, accessor: string): unknown {
@@ -304,19 +320,10 @@ describe("emit", () => {
   }, 60000);
 
   it("emits .ksy files that the Kaitai Struct compiler accepts and that parse every sample", async () => {
-    const compiler = requireFromRepository("kaitai-struct-compiler") as { compile(language: string, ksy: unknown, importer: null, debug: boolean): Promise<Record<string, string>> };
-    const kaitaiStream = requireFromRepository("kaitai-struct/KaitaiStream") as new (buffer: ArrayBuffer) => unknown;
     for (const format of exampleFormats) {
-      const ksy: unknown = parseYaml(readFileSync(emitted(format).files.kaitai, "utf8"));
-      const compiled = await compiler.compile("javascript", ksy, null, false);
-      const [source] = Object.values(compiled);
-      const moduleExports: Record<string, new (stream: unknown) => unknown> = {};
-      new Function("exports", "require", source ?? "")(moduleExports, requireFromRepository);
-      const KaitaiType = Object.values(moduleExports)[0];
-      expect(KaitaiType, format).toBeTypeOf("function");
+      const parse = await compileKaitai(emitted(format).files.kaitai);
       for (const { file, expectations } of expectedValues(format)) {
-        const bytes = readFixture(file);
-        const parsed = new (KaitaiType as new (stream: unknown) => unknown)(new kaitaiStream(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer));
+        const parsed = parse(readFixture(file));
         for (const expectation of expectations) {
           const actual = evaluateAccessor(parsed, camelCaseAccessor(expectation.accessor));
           const measured = expectation.matcher === "toHaveLength" ? (actual as unknown[]).length : actual;
@@ -324,5 +331,145 @@ describe("emit", () => {
         }
       }
     }
+  });
+
+  it.each(["same path", "hard link"])("refuses to overwrite a sample through a %s", async (alias) => {
+    const outDir = join(emitRoot, alias);
+    mkdirSync(outDir);
+    const parser = join(outDir, "capture.ts");
+    const file = alias === "hard link" ? join(outDir, "sample.bin") : parser;
+    const bytes = Buffer.from([0x47, 0x1f, 0xff]);
+    writeFileSync(file, bytes);
+    if (file !== parser) {
+      linkSync(file, parser);
+    }
+    const layout = { id: "capture", endian: "le", seq: [{ id: "data", type: "bytes", sizeEos: true }] };
+    await expect(runTool(emitTool, { files: [file], layout, outDir })).rejects.toThrow(/aliases an input file/);
+    expect(readFileSync(file)).toEqual(bytes);
+    expect(readdirSync(outDir).sort()).toEqual(file === parser ? ["capture.ts"] : ["capture.ts", "sample.bin"]);
+  });
+
+  it("protects the layout input from artifact writes too", async () => {
+    const outDir = join(emitRoot, "layout-alias");
+    mkdirSync(outDir);
+    const layoutFile = join(outDir, "capture.md");
+    const layout = { id: "capture", endian: "le", seq: [{ id: "data", type: "bytes", sizeEos: true }] };
+    writeFileSync(layoutFile, JSON.stringify(layout));
+    await expect(runTool(emitTool, { files: fixturePaths("wav").slice(0, 1), layoutFile, outDir })).rejects.toThrow(/aliases an input file/);
+    expect(readFileSync(layoutFile, "utf8")).toBe(JSON.stringify(layout));
+    expect(readdirSync(outDir)).toEqual(["capture.md"]);
+  });
+
+  it("throws when an EOF repeat item consumes no bytes", async () => {
+    const outDir = join(emitRoot, "empty-repeat");
+    mkdirSync(outDir);
+    const file = join(outDir, "sample.bin");
+    const bytes = Uint8Array.of(1, 8, 9);
+    writeFileSync(file, bytes);
+    const layout = {
+      id: "records",
+      endian: "le",
+      seq: [{ id: "flag", type: "u1" }, { id: "items", type: "item", repeat: "eos" }],
+      types: { item: { seq: [{ id: "value", type: "u1", if: "_root.flag == 1" }] } },
+    };
+    const output = await runTool(emitTool, { files: [file], layout, outDir });
+    const parser = (await import(pathToFileURL(output.files.parser).href)) as {
+      parseRecords(bytes: Uint8Array): { items: { value?: number }[] };
+      ParseError: typeof Error;
+      ByteStream: { prototype: { readonly eof: boolean } };
+    };
+    expect(parser.parseRecords(bytes).items).toEqual([{ value: 8 }, { value: 9 }]);
+    const eof = vi.spyOn(parser.ByteStream.prototype, "eof", "get").mockReturnValueOnce(false).mockReturnValue(true);
+    try {
+      expect(() => parser.parseRecords(Uint8Array.of(0, 8))).toThrow(parser.ParseError);
+      expect(() => {
+        eof.mockReturnValueOnce(false);
+        parser.parseRecords(Uint8Array.of(0, 8));
+      }).toThrow(/repeat item consumed 0 bytes/);
+    } finally {
+      eof.mockRestore();
+    }
+  });
+
+  it.each(["size", "sizeEos"])("checks contents after reading and inflating a field with %s", async (range) => {
+    const outDir = join(emitRoot, `processed-${range}`);
+    mkdirSync(outDir);
+    const file = join(outDir, "sample.bin");
+    const bytes = deflateSync("MAGIC");
+    writeFileSync(file, bytes);
+    const layout = {
+      id: "processed",
+      endian: "le",
+      seq: [{ id: "data", type: "bytes", ...(range === "size" ? { size: bytes.length } : { sizeEos: true }), process: "zlib", contents: "MAGIC" }],
+    };
+    const output = await runTool(emitTool, { files: [file], layout, outDir });
+    expect(output.verification.fullyRead).toBe(1);
+    const parser = (await import(pathToFileURL(output.files.parser).href)) as { parseProcessed(bytes: Uint8Array): { data: Uint8Array } };
+    expect(Buffer.from(parser.parseProcessed(bytes).data).toString()).toBe("MAGIC");
+    const wrong = deflateSync("wrong");
+    expect(() => parser.parseProcessed(wrong)).toThrow(/does not match the expected contents/);
+    const parseKaitai = await compileKaitai(output.files.kaitai);
+    expect(parseKaitai(bytes)).toMatchObject({ data: Uint8Array.from(Buffer.from("MAGIC")) });
+    expect(() => parseKaitai(wrong)).toThrow(expect.objectContaining({ name: "ValidationNotEqualError" }));
+    if (range === "sizeEos") {
+      const longer = deflateSync("MAGIC plus");
+      expect(() => parser.parseProcessed(longer)).toThrow(/does not match the expected contents/);
+      expect(() => parseKaitai(longer)).toThrow(expect.objectContaining({ name: "ValidationNotEqualError" }));
+    }
+  });
+
+  it.each(["root", "nested"])("rejects an early root instance reference from the %s sequence", async (scope) => {
+    const outDir = join(emitRoot, `root-reference-${scope}`);
+    mkdirSync(outDir);
+    const file = join(outDir, "sample.bin");
+    const bytes = Uint8Array.of(0x41, 0x42, 2);
+    writeFileSync(file, bytes);
+    const payload = { id: "payload", type: "bytes", size: "_root.payload_length" };
+    const layout = {
+      id: "qualified",
+      endian: "le",
+      ...(scope === "root"
+        ? { seq: [payload] }
+        : { seq: [{ id: "record", type: "item" }], types: { item: { seq: [payload] } } }),
+      instances: { payload_length: { type: "u1", pos: "_io.size - 1" } },
+    };
+    const verification = verifySample(parseLayout(layout), file, bytes, { includeTree: true, maxArrayItems: 10, maxUnreadRanges: 10 });
+    expect(verification.ok).toBe(true);
+    await expect(runTool(emitTool, { files: [file], layout, outDir })).rejects.toThrow(/refers to instance _root\.payload_length/);
+    expect(readdirSync(outDir)).toEqual(["sample.bin"]);
+  });
+
+  it("orders root-qualified dependencies between instances", async () => {
+    const outDir = join(emitRoot, "instance-order");
+    mkdirSync(outDir);
+    const file = join(outDir, "sample.bin");
+    const bytes = Uint8Array.of(0x41, 0x42, 2);
+    writeFileSync(file, bytes);
+    const layout = {
+      id: "qualified",
+      endian: "le",
+      instances: {
+        payload: { type: "bytes", pos: 0, size: "_root.payload_length" },
+        payload_length: { type: "u1", pos: "_io.size - 1" },
+      },
+    };
+    const output = await runTool(emitTool, { files: [file], layout, outDir });
+    const parser = (await import(pathToFileURL(output.files.parser).href)) as { parseQualified(bytes: Uint8Array): { payload: Uint8Array } };
+    expect(parser.parseQualified(bytes).payload).toEqual(bytes.subarray(0, 2));
+  });
+
+  it("emits a type-checked array containing numbers and bigints for repeated u8 fields", async () => {
+    const outDir = join(emitRoot, "wide-repeat");
+    mkdirSync(outDir);
+    const file = join(outDir, "sample.bin");
+    const bytes = Buffer.alloc(16);
+    bytes.writeBigUInt64LE(2n);
+    bytes.writeBigUInt64LE(2n ** 63n, 8);
+    writeFileSync(file, bytes);
+    const layout = { id: "wide_repeat", endian: "le", seq: [{ id: "values", type: "u8", repeat: "expr", repeatExpr: 2 }] };
+    const output = await runTool(emitTool, { files: [file], layout, outDir });
+    expect(typeErrors([output.files.parser, output.files.test])).toEqual([]);
+    const parser = (await import(pathToFileURL(output.files.parser).href)) as { parseWideRepeat(bytes: Uint8Array): { values: Array<number | bigint> } };
+    expect(parser.parseWideRepeat(bytes).values).toEqual([2, 2n ** 63n]);
   });
 });

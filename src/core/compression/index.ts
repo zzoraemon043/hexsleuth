@@ -1,4 +1,4 @@
-import { decodeDeflateRaw, decodeGzip, decodeZlib, isZlibHeader } from "./deflate.js";
+import { decodeDeflateRaw, decodeGzip, decodeZlib, isZlibHeader, ZlibOutputLimitError } from "./deflate.js";
 import { decodeLz4, hasLz4Magic } from "./lz4.js";
 import type { CompressionMethod, DecodedStream } from "./types.js";
 import { decodeZstd, hasZstdMagic } from "./zstd.js";
@@ -15,10 +15,13 @@ const decoders: Record<CompressionMethod, (bytes: Uint8Array, offset: number) =>
 
 export const signatureMethods: CompressionMethod[] = ["zlib", "gzip", "lz4", "zstd"];
 
-export function tryDecode(bytes: Uint8Array, offset: number, method: CompressionMethod): DecodedStream | undefined {
+export function tryDecode(bytes: Uint8Array, offset: number, method: CompressionMethod, options: { reportOutputLimit?: boolean } = {}): DecodedStream | undefined {
   try {
     return decoders[method](bytes, offset);
-  } catch {
+  } catch (error) {
+    if (options.reportOutputLimit && error instanceof ZlibOutputLimitError) {
+      throw error;
+    }
     return undefined;
   }
 }

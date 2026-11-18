@@ -82,9 +82,8 @@ export class ByteStream {
     return width === 4 ? view.getFloat32(0, littleEndian) : view.getFloat64(0, littleEndian);
   }
 
-  expectContents(expected: number[], name: string): Uint8Array {
-    const actual = this.readBytes(expected.length);
-    if (!expected.every((byte, index) => actual[index] === byte)) {
+  expectContents(expected: number[], name: string, actual = this.readBytes(expected.length)): Uint8Array {
+    if (actual.length !== expected.length || !expected.every((byte, index) => actual[index] === byte)) {
       throw new ParseError(\`\${name} does not match the expected contents\`);
     }
     return actual;

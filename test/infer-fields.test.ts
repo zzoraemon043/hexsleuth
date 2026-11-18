@@ -1,4 +1,7 @@
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { buildZip } from "../scripts/fixtures/zip.js";
 import { runTool } from "../src/tools/definition.js";
 import { inferFieldsTool, type InferFieldsOutput } from "../src/tools/infer-fields.js";
 import type { Finding } from "../src/infer/finding.js";
@@ -54,8 +57,25 @@ describe("infer_fields on WAV", () => {
 });
 
 describe("infer_fields on ZIP", () => {
+  it("reports only the shared prefix for empty and nonempty ZIPs in either order", async () => {
+    const directory = resolve(".work/infer-mixed-zip");
+    mkdirSync(directory, { recursive: true });
+    const empty = join(directory, "empty.zip");
+    writeFileSync(empty, buildZip([]));
+    try {
+      const [nonempty] = fixturePaths("zip");
+      const results = await Promise.all([[nonempty, empty], [empty, nonempty]].map((files) => runTool(inferFieldsTool, { files })));
+      const findings = results.map((result) => findingAt(result, "magic", "0x0000", "bytes[2]"));
+      expect(findings.map((finding) => finding?.claim)).toEqual(Array(2).fill('the file starts with the magic bytes 50 4b ("PK")'));
+      expect(findings[0]?.confidence).toBe(findings[1]?.confidence);
+    } finally {
+      rmSync(empty);
+    }
+  });
+
   it("finds the central directory offset, size and entry counts anchored at the end", async () => {
     const output = await infer("zip");
+    expect(findingAt(output, "magic", "0x0000", "bytes[4]")?.claim).toContain("known signature: ZIP local file header");
     const offset = findingAt(output, "offset", "end-6", "u4le");
     expect(offset?.check).toContain("points to the same bytes 50 4b 01 02 in 6 of 6 samples");
     expect(offset?.confidence).toBeGreaterThanOrEqual(0.9);

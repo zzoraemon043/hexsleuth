@@ -41,10 +41,17 @@ function summarize(blocks: EntropyBlock[]): { min: number; max: number; mean: nu
   if (blocks.length === 0) {
     return { min: 0, max: 0, mean: 0 };
   }
-  const values = blocks.map((block) => block.entropy);
-  const weightedTotal = blocks.reduce((total, block) => total + block.entropy * block.length, 0);
-  const totalLength = blocks.reduce((total, block) => total + block.length, 0);
-  return { min: Math.min(...values), max: Math.max(...values), mean: roundTo(weightedTotal / totalLength, 3) };
+  let min = Infinity;
+  let max = -Infinity;
+  let weightedTotal = 0;
+  let totalLength = 0;
+  for (const block of blocks) {
+    min = Math.min(min, block.entropy);
+    max = Math.max(max, block.entropy);
+    weightedTotal += block.entropy * block.length;
+    totalLength += block.length;
+  }
+  return { min, max, mean: roundTo(weightedTotal / totalLength, 3) };
 }
 
 export function probe(input: z.infer<z.ZodObject<typeof probeInput>>): ProbeOutput {

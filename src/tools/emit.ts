@@ -28,7 +28,8 @@ export function emit(input: z.infer<z.ZodObject<typeof emitInput>>): EmitOutput 
   const layout = resolveLayout(input);
   const samples = input.files.map((file) => ({ file, bytes: loadFile(file).bytes }));
   const evidence = input.evidence.map((item) => ({ claim: item.claim, check: item.check, confidence: item.confidence }));
-  const result = emitArtifacts(layout, samples, input.outDir, evidence, input.allowFailures);
+  const layoutFile = input.layout === undefined ? input.layoutFile : undefined;
+  const result = emitArtifacts(layout, samples, input.outDir, evidence, input.allowFailures, layoutFile);
   const parsed = result.samples.filter((sample) => sample.ok).length;
   return {
     layout: layout.id,

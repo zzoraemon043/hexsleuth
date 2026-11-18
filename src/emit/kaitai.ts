@@ -57,11 +57,16 @@ function kaitaiType(field: NamedField, layout: Layout): string | undefined {
 }
 
 function fieldEntries(field: NamedField, layout: Layout, includeId: boolean): Record<string, YamlValue | undefined> {
+  const contents = field.contents === undefined ? undefined : Array.from(contentsBytes(field.contents));
+  const hasSize = field.size !== undefined || field.sizeEos === true;
+  const valid = hasSize && contents !== undefined
+    ? (contents.length === 0 ? { expr: "_.size == 0" } : `[${contents.join(", ")}]`)
+    : undefined;
   return {
     ...(includeId ? { id: field.id } : {}),
     ...(field.pos !== undefined ? { pos: expressionValue(field.pos) } : {}),
     type: kaitaiType(field, layout),
-    contents: field.contents === undefined ? undefined : Array.from(contentsBytes(field.contents)),
+    contents: hasSize ? undefined : contents,
     size: expressionValue(field.size),
     "size-eos": field.sizeEos,
     encoding: field.encoding,
@@ -69,6 +74,7 @@ function fieldEntries(field: NamedField, layout: Layout, includeId: boolean): Re
     repeat: field.repeat,
     "repeat-expr": expressionValue(field.repeatExpr),
     if: expressionValue(field.if),
+    valid,
     doc: field.doc,
   };
 }
